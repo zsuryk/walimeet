@@ -30,7 +30,10 @@ npm run dev
    npx wrangler kv namespace create WALIMEET_KV
    ```
 
-2. Update `wrangler.toml` with the KV namespace ID
+2. Copy the example config and update with your KV ID:
+   ```bash
+   cp wrangler.toml.example wrangler.toml
+   ```
 
 3. Deploy:
    ```bash

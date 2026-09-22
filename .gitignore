@@ -10,6 +10,7 @@ build
 # Cloudflare
 .wrangler
 .dev.vars
+wrangler.toml
 
 # Environment variables
 .env
