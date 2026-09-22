@@ -42,16 +42,11 @@ export default function TimeGrid({
     return names;
   };
 
-  const getIntensity = (slotKey: string) => {
-    const count = getAvailableCount(slotKey);
-    const participantCount = Object.keys(responses).length;
-    if (participantCount === 0) return 0;
-    return count / participantCount;
-  };
+  const participantCount = Object.keys(responses).length;
 
   const handleMouseDown = useCallback(
     (slotKey: string) => {
-      const currentValue = myAvailabilities[slotKey] ?? true;
+      const currentValue = myAvailabilities[slotKey] ?? false;
       const newValue = !currentValue;
       setDragValue(newValue);
       setIsDragging(true);
@@ -64,7 +59,7 @@ export default function TimeGrid({
     (slotKey: string) => {
       setHoveredSlot(slotKey);
       if (isDragging && dragValue !== null) {
-        const currentValue = myAvailabilities[slotKey] ?? true;
+        const currentValue = myAvailabilities[slotKey] ?? false;
         if (currentValue !== dragValue) {
           onToggle(slotKey);
         }
@@ -93,6 +88,22 @@ export default function TimeGrid({
       day: dayNames[d.getDay()],
       date: `${monthNames[d.getMonth()]} ${d.getDate()}`,
     };
+  };
+
+  const getSlotColor = (slotKey: string) => {
+    const count = getAvailableCount(slotKey);
+    const isMyAvailable = myAvailabilities[slotKey] ?? false;
+
+    if (participantCount === 0) {
+      return isMyAvailable
+        ? 'rgba(34, 197, 94, 0.3)'
+        : 'transparent';
+    }
+
+    if (count === 0) return 'transparent';
+
+    const intensity = count / participantCount;
+    return `rgba(34, 197, 94, ${0.2 + intensity * 0.6})`;
   };
 
   return (
@@ -125,9 +136,9 @@ export default function TimeGrid({
               </div>
               {dates.map((date) => {
                 const slotKey = getSlotKey(date, time);
-                const isAvailable = myAvailabilities[slotKey] ?? true;
-                const intensity = getIntensity(slotKey);
+                const isMyAvailable = myAvailabilities[slotKey] ?? false;
                 const count = getAvailableCount(slotKey);
+                const bgColor = getSlotColor(slotKey);
                 const isHovered = hoveredSlot === slotKey;
 
                 return (
@@ -144,17 +155,11 @@ export default function TimeGrid({
                       }}
                       className={`
                         w-full h-8 rounded-sm text-xs font-medium transition-colors relative
-                        ${isAvailable
-                          ? `bg-green-${Math.max(100, Math.round(intensity * 500))} text-green-900`
-                          : 'bg-gray-100 text-gray-400'
-                        }
+                        border-2
+                        ${isMyAvailable ? 'border-green-600' : 'border-transparent'}
                         ${isHovered ? 'ring-2 ring-green-400' : ''}
                       `}
-                      style={{
-                        backgroundColor: isAvailable
-                          ? `rgba(34, 197, 94, ${0.15 + intensity * 0.7})`
-                          : undefined,
-                      }}
+                      style={{ backgroundColor: bgColor }}
                     >
                       {count > 0 && (
                         <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
@@ -170,10 +175,10 @@ export default function TimeGrid({
         </div>
 
         {/* Participant list */}
-        {Object.keys(responses).length > 0 && (
+        {participantCount > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-sm font-medium text-gray-700 mb-2">
-              Participants ({Object.keys(responses).length})
+              Participants ({participantCount})
             </p>
             <div className="flex flex-wrap gap-2">
               {Object.values(responses).map((r) => (

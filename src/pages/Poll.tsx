@@ -27,12 +27,25 @@ export default function Poll() {
     (slotKey: string) => {
       setMyAvailabilities((prev) => ({
         ...prev,
-        [slotKey]: !(prev[slotKey] ?? true),
+        [slotKey]: !(prev[slotKey] ?? false),
       }));
       setSubmitted(false);
     },
     []
   );
+
+  // Load previous response when participant name changes
+  useEffect(() => {
+    if (!poll || !participantName.trim()) {
+      setMyAvailabilities({});
+      return;
+    }
+    const key = participantName.trim().toLowerCase();
+    const existing = poll.responses[key];
+    if (existing) {
+      setMyAvailabilities({ ...existing.availabilities });
+    }
+  }, [participantName, poll]);
 
   const handleSubmit = async () => {
     if (!poll || !participantName.trim()) return;
