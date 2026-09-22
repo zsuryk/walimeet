@@ -8,6 +8,8 @@ interface TimeGridProps {
   responses: Record<string, { name: string; availabilities: Record<string, boolean> }>;
   onToggle: (slotKey: string) => void;
   myAvailabilities: Record<string, boolean>;
+  hoveredParticipant: string | null;
+  onHoverParticipant: (name: string | null) => void;
 }
 
 export default function TimeGrid({
@@ -17,6 +19,8 @@ export default function TimeGrid({
   responses,
   onToggle,
   myAvailabilities,
+  hoveredParticipant,
+  onHoverParticipant,
 }: TimeGridProps) {
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -91,15 +95,22 @@ export default function TimeGrid({
   };
 
   const getSlotColor = (slotKey: string) => {
-    const count = getAvailableCount(slotKey);
     const isMyAvailable = myAvailabilities[slotKey] ?? false;
 
-    if (participantCount === 0) {
-      return isMyAvailable
-        ? 'rgba(34, 197, 94, 0.3)'
-        : 'transparent';
+    // When hovering a participant, show only their availability
+    if (hoveredParticipant) {
+      const participant = responses[hoveredParticipant];
+      const isAvailable = participant?.availabilities[slotKey] ?? false;
+      return isAvailable ? 'rgba(34, 197, 94, 0.5)' : 'rgba(229, 231, 235, 0.5)';
     }
 
+    // No responses yet - show only my selection
+    if (participantCount === 0) {
+      return isMyAvailable ? 'rgba(34, 197, 94, 0.3)' : 'transparent';
+    }
+
+    // Show overlay of all responses
+    const count = getAvailableCount(slotKey);
     if (count === 0) return 'transparent';
 
     const intensity = count / participantCount;
@@ -184,7 +195,13 @@ export default function TimeGrid({
               {Object.values(responses).map((r) => (
                 <span
                   key={r.name}
-                  className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                  className={`px-2 py-1 text-xs rounded-full cursor-pointer transition-colors ${
+                    hoveredParticipant === r.name
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onMouseEnter={() => onHoverParticipant(r.name)}
+                  onMouseLeave={() => onHoverParticipant(null)}
                 >
                   {r.name}
                 </span>

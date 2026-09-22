@@ -14,6 +14,7 @@ export default function Poll() {
   const [myAvailabilities, setMyAvailabilities] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -140,6 +141,8 @@ export default function Poll() {
             responses={poll.responses}
             onToggle={handleToggle}
             myAvailabilities={myAvailabilities}
+            hoveredParticipant={hoveredParticipant}
+            onHoverParticipant={setHoveredParticipant}
           />
         </div>
 
