@@ -1,32 +1,42 @@
-# React + TypeScript + Vite
+# Walimeet
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The easiest way to schedule group meetings. Free, no account required.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Interactive availability grid — click/drag to mark times
+- 15-minute time slots with timezone support
+- Shareable poll links
+- Auto-expiring polls (1–14 days)
+- Mobile-friendly
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Frontend**: React + Vite + Tailwind CSS
+- **Backend**: Cloudflare Workers
+- **Storage**: Cloudflare KV
 
-## Expanding the Oxlint configuration
+## Getting Started
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Deploy
+
+1. Create a KV namespace:
+   ```bash
+   npx wrangler kv namespace create WALIMEET_KV
+   ```
+
+2. Update `wrangler.toml` with the KV namespace ID
+
+3. Deploy:
+   ```bash
+   npx wrangler deploy
+   ```
+
+## License
+
+[MIT](LICENSE)
