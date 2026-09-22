@@ -39,9 +39,14 @@ export default function Poll() {
     setSubmitting(true);
 
     try {
+      const availableSlots: Record<string, boolean> = {};
+      Object.entries(myAvailabilities).forEach(([key, value]) => {
+        if (value) availableSlots[key] = true;
+      });
+
       const updated = await respondToPoll(poll.id, {
         name: participantName.trim(),
-        availabilities: myAvailabilities,
+        availabilities: availableSlots,
       });
       setPoll(updated);
       setSubmitted(true);

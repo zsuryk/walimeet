@@ -52,7 +52,8 @@ export default function TimeGrid({
   const handleMouseDown = useCallback(
     (slotKey: string) => {
       const currentValue = myAvailabilities[slotKey] ?? true;
-      setDragValue(!currentValue);
+      const newValue = !currentValue;
+      setDragValue(newValue);
       setIsDragging(true);
       onToggle(slotKey);
     },
@@ -63,10 +64,13 @@ export default function TimeGrid({
     (slotKey: string) => {
       setHoveredSlot(slotKey);
       if (isDragging && dragValue !== null) {
-        onToggle(slotKey);
+        const currentValue = myAvailabilities[slotKey] ?? true;
+        if (currentValue !== dragValue) {
+          onToggle(slotKey);
+        }
       }
     },
-    [isDragging, dragValue, onToggle]
+    [isDragging, dragValue, myAvailabilities, onToggle]
   );
 
   const handleMouseUp = useCallback(() => {
