@@ -10,10 +10,10 @@ export default function Poll() {
   const [poll, setPoll] = useState<PollType | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [participantName, setParticipantName] = useState('');
   const [myAvailabilities, setMyAvailabilities] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,23 +30,34 @@ export default function Poll() {
         ...prev,
         [slotKey]: !(prev[slotKey] ?? false),
       }));
-      setSubmitted(false);
     },
     []
   );
 
-  // Load previous response when participant name changes
+  // Load previous response when entering edit mode
   useEffect(() => {
-    if (!poll || !participantName.trim()) {
-      setMyAvailabilities({});
-      return;
+    if (!isEditing || !poll) return;
+    // Try to load existing response if name is already set
+    if (participantName.trim()) {
+      const key = participantName.trim().toLowerCase();
+      const existing = poll.responses[key];
+      if (existing) {
+        setMyAvailabilities({ ...existing.availabilities });
+      }
     }
-    const key = participantName.trim().toLowerCase();
-    const existing = poll.responses[key];
-    if (existing) {
-      setMyAvailabilities({ ...existing.availabilities });
-    }
-  }, [participantName, poll]);
+  }, [isEditing, poll, participantName]);
+
+  const handleEnterEdit = () => {
+    setMyAvailabilities({});
+    setHoveredParticipant(null);
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setMyAvailabilities({});
+    setParticipantName('');
+  };
 
   const handleSubmit = async () => {
     if (!poll || !participantName.trim()) return;
@@ -63,7 +74,9 @@ export default function Poll() {
         availabilities: availableSlots,
       });
       setPoll(updated);
-      setSubmitted(true);
+      setIsEditing(false);
+      setMyAvailabilities({});
+      setParticipantName('');
     } catch (err) {
       console.error('Failed to submit:', err);
       alert('Failed to submit. Please try again.');
@@ -139,41 +152,59 @@ export default function Poll() {
             timeRange={poll.timeRange}
             slotMinutes={poll.slotMinutes}
             responses={poll.responses}
-            onToggle={handleToggle}
-            myAvailabilities={myAvailabilities}
-            hoveredParticipant={hoveredParticipant}
-            onHoverParticipant={setHoveredParticipant}
+            onToggle={isEditing ? handleToggle : undefined}
+            myAvailabilities={isEditing ? myAvailabilities : {}}
+            hoveredParticipant={isEditing ? null : hoveredParticipant}
+            onHoverParticipant={isEditing ? () => {} : setHoveredParticipant}
+            isEditing={isEditing}
           />
         </div>
 
-        {/* Submit form */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Submit your availability
-          </h2>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              value={participantName}
-              onChange={(e) => setParticipantName(e.target.value)}
-              placeholder="Your name"
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
-            />
+        {/* Display mode: Edit button */}
+        {!isEditing && (
+          <div className="bg-white rounded-xl shadow-sm p-6">
             <button
               type="button"
-              onClick={handleSubmit}
-              disabled={!participantName.trim() || submitting}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+              onClick={handleEnterEdit}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
             >
-              {submitting ? 'Submitting...' : submitted ? 'Update' : 'Submit'}
+              Edit availability
             </button>
           </div>
-          {submitted && (
-            <p className="text-sm text-green-600 mt-2">
-              ✓ Availability submitted! Share the link above with others.
-            </p>
-          )}
-        </div>
+        )}
+
+        {/* Edit mode: Name input + Submit/Cancel */}
+        {isEditing && (
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Submit your availability
+            </h2>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input
+                type="text"
+                value={participantName}
+                onChange={(e) => setParticipantName(e.target.value)}
+                placeholder="Your name"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              />
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!participantName.trim() || submitting}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+              >
+                {submitting ? 'Submitting...' : 'Submit'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold px-6 py-2 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

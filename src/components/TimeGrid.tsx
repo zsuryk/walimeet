@@ -6,10 +6,11 @@ interface TimeGridProps {
   timeRange: { start: string; end: string };
   slotMinutes: number;
   responses: Record<string, { name: string; availabilities: Record<string, boolean> }>;
-  onToggle: (slotKey: string) => void;
+  onToggle: ((slotKey: string) => void) | undefined;
   myAvailabilities: Record<string, boolean>;
   hoveredParticipant: string | null;
   onHoverParticipant: (name: string | null) => void;
+  isEditing: boolean;
 }
 
 export default function TimeGrid({
@@ -21,6 +22,7 @@ export default function TimeGrid({
   myAvailabilities,
   hoveredParticipant,
   onHoverParticipant,
+  isEditing,
 }: TimeGridProps) {
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -50,6 +52,7 @@ export default function TimeGrid({
 
   const handleMouseDown = useCallback(
     (slotKey: string) => {
+      if (!onToggle) return;
       const currentValue = myAvailabilities[slotKey] ?? false;
       const newValue = !currentValue;
       setDragValue(newValue);
@@ -62,6 +65,7 @@ export default function TimeGrid({
   const handleMouseEnter = useCallback(
     (slotKey: string) => {
       setHoveredSlot(slotKey);
+      if (!onToggle) return;
       if (isDragging && dragValue !== null) {
         const currentValue = myAvailabilities[slotKey] ?? false;
         if (currentValue !== dragValue) {
@@ -166,8 +170,8 @@ export default function TimeGrid({
                       }}
                       className={`
                         w-full h-8 rounded-sm text-xs font-medium transition-colors relative
-                        border-2
-                        ${isMyAvailable ? 'border-green-600' : 'border-transparent'}
+                        ${isEditing ? 'cursor-pointer' : 'cursor-default'}
+                        ${isEditing && isMyAvailable ? 'border-2 border-green-600' : 'border-2 border-transparent'}
                         ${isHovered ? 'ring-2 ring-green-400' : ''}
                       `}
                       style={{ backgroundColor: bgColor }}
