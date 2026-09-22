@@ -1,6 +1,6 @@
 import type { CreatePollInput, Poll, RespondInput } from './types';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export async function createPoll(input: CreatePollInput): Promise<Poll> {
   const res = await fetch(`${API_BASE}/poll`, {

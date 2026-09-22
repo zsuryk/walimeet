@@ -20,6 +20,7 @@ The easiest way to schedule group meetings. Free, no account required.
 
 ```bash
 npm install
+cp .env.example .env  # update with your Worker URL
 npm run dev
 ```
 
@@ -35,9 +36,17 @@ npm run dev
    cp wrangler.toml.example wrangler.toml
    ```
 
-3. Deploy:
+3. Deploy the Worker:
    ```bash
    npx wrangler deploy
+   ```
+
+4. Create and deploy the frontend:
+   ```bash
+   npx wrangler pages project create walimeet --production-branch main
+   echo "VITE_API_URL=https://YOUR-WORKER.workers.dev" > .env
+   npm run build
+   npx wrangler pages deploy dist
    ```
 
 ## License
