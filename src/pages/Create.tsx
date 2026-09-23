@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Calendar from '../components/Calendar';
 import TimeRangePicker from '../components/TimeRangePicker';
+import ThemeToggle from '../components/ThemeToggle';
 import { createPoll } from '../lib/api';
 import { getUserTimezone, getTimezoneOffset } from '../lib/timezone';
 import { format } from 'date-fns';
@@ -62,8 +63,14 @@ export default function Create() {
 
   return (
     <div className="min-h-screen py-8 px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="max-w-2xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
+        <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 inline-block">
+          ← Walimeet
+        </Link>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">
           Create a Poll
         </h1>
 
@@ -75,7 +82,7 @@ export default function Create() {
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step >= s
                     ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 text-gray-500'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}
               >
                 {s}
@@ -83,7 +90,7 @@ export default function Create() {
               {s < 3 && (
                 <div
                   className={`w-12 h-1 ${
-                    step > s ? 'bg-green-500' : 'bg-gray-200'
+                    step > s ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
                   }`}
                 />
               )}
@@ -94,12 +101,12 @@ export default function Create() {
         {/* Step 1: Pick dates */}
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-800 text-center">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center">
               What days would you like to meet?
             </h2>
             <Calendar selectedDates={selectedDates} onToggleDate={toggleDate} />
             {selectedDates.length > 0 && (
-              <p className="text-sm text-gray-500 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                 {selectedDates.length} day(s) selected
               </p>
             )}
@@ -107,7 +114,7 @@ export default function Create() {
               type="button"
               onClick={() => setStep(2)}
               disabled={selectedDates.length === 0}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg transition-colors"
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
             >
               Next
             </button>
@@ -117,24 +124,24 @@ export default function Create() {
         {/* Step 2: Time range & timezone */}
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-gray-800 text-center">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center">
               What times would you like to meet between?
             </h2>
-            <div className="bg-white rounded-xl p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6">
               <TimeRangePicker
                 start={timeRange.start}
                 end={timeRange.end}
                 onChange={setTimeRange}
               />
             </div>
-            <div className="bg-white rounded-xl p-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Timezone
               </label>
               <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
               >
                 {allTimezones.map((tz) => (
                   <option key={tz} value={tz}>
@@ -147,7 +154,7 @@ export default function Create() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg transition-colors"
+                className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold py-3 rounded-lg transition-colors"
               >
                 Back
               </button>
@@ -165,12 +172,12 @@ export default function Create() {
         {/* Step 3: Details & submit */}
         {step === 3 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-800 text-center">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center">
               Name your meeting
             </h2>
-            <div className="bg-white rounded-xl p-6 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Meeting name *
                 </label>
                 <input
@@ -178,11 +185,11 @@ export default function Create() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Team standup"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Description (optional)
                 </label>
                 <textarea
@@ -190,11 +197,11 @@ export default function Create() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What's the meeting about?"
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Your name
                 </label>
                 <input
@@ -202,17 +209,17 @@ export default function Create() {
                   value={creatorName}
                   onChange={(e) => setCreatorName(e.target.value)}
                   placeholder="Anonymous"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Expires in
                 </label>
                 <select
                   value={expiryDays}
                   onChange={(e) => setExpiryDays(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 >
                   {[1, 2, 3, 5, 7, 10, 14].map((d) => (
                     <option key={d} value={d}>
@@ -224,9 +231,9 @@ export default function Create() {
             </div>
 
             {/* Summary */}
-            <div className="bg-green-50 rounded-xl p-4 text-sm">
-              <p className="font-medium text-green-800 mb-1">Poll summary</p>
-              <p className="text-green-700">
+            <div className="bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-sm">
+              <p className="font-medium text-green-800 dark:text-green-300 mb-1">Poll summary</p>
+              <p className="text-green-700 dark:text-green-400">
                 {selectedDates.length} day(s) · {timeRange.start} to {timeRange.end} · {timezone.replace(/_/g, ' ')}
               </p>
             </div>
@@ -235,7 +242,7 @@ export default function Create() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 rounded-lg transition-colors"
+                className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold py-3 rounded-lg transition-colors"
               >
                 Back
               </button>
@@ -243,7 +250,7 @@ export default function Create() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={!name || loading}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white font-semibold py-3 rounded-lg transition-colors"
+                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
               >
                 {loading ? 'Creating...' : 'Create Poll'}
               </button>
