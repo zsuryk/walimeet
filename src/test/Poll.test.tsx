@@ -126,6 +126,55 @@ describe('editing when others have already responded', () => {
   });
 });
 
+describe('participant inspection', () => {
+  async function renderWithAlex(): Promise<UserEvent> {
+    mockGetPoll.mockResolvedValue(
+      makePoll({ responses: { alex: makeResponse('Alex') } })
+    );
+    const user = userEvent.setup();
+    renderPoll();
+    await screen.findByRole('heading', { name: 'Team standup' });
+    return user;
+  }
+
+  it('shows participant chips above the grid so hover feedback is on screen', async () => {
+    await renderWithAlex();
+    const chip = screen.getByRole('button', { name: 'Alex' });
+    const grid = screen.getByRole('grid');
+    expect(
+      chip.compareDocumentPosition(grid) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('pins a participant on click so the lens survives the mouse leaving', async () => {
+    const user = await renderWithAlex();
+    const chip = screen.getByRole('button', { name: 'Alex' });
+    await user.click(chip);
+    await user.unhover(chip);
+
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/Viewing Alex/)).toBeInTheDocument();
+
+    const cells = screen.getAllByRole('gridcell');
+    // slot Alex marked → lens fill
+    expect(cells[0].style.backgroundColor).toBe('rgba(49, 77, 237, 0.6)');
+    // slot Alex did not mark → lens "unavailable" gray
+    expect(cells[1].className).toContain('bg-gray-100');
+  });
+
+  it('clears the pin when Stop viewing is pressed', async () => {
+    const user = await renderWithAlex();
+    const chip = screen.getByRole('button', { name: 'Alex' });
+    await user.click(chip);
+    await user.click(screen.getByRole('button', { name: 'Stop viewing' }));
+
+    expect(screen.queryByText(/Viewing Alex/)).not.toBeInTheDocument();
+    expect(chip).toHaveAttribute('aria-pressed', 'false');
+    const cells = screen.getAllByRole('gridcell');
+    expect(cells[1].className).not.toContain('bg-gray-100');
+  });
+});
+
 describe('creator attribution', () => {
   it('renders the creator name on the poll page', async () => {
     renderPoll();

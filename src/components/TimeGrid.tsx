@@ -40,6 +40,7 @@ export default function TimeGrid({
   minParticipants,
 }: TimeGridProps) {
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+  const [pinnedParticipant, setPinnedParticipant] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragValue, setDragValue] = useState<boolean | null>(null);
   const [focusPos, setFocusPos] = useState({ row: 0, col: 0 });
@@ -47,6 +48,8 @@ export default function TimeGrid({
   const cellRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const slots = generateTimeSlots(timeRange.start, timeRange.end, slotMinutes);
+
+  const lensParticipant = hoveredParticipant ?? pinnedParticipant;
 
   const activeSlot = focusedSlot ?? hoveredSlot;
 
@@ -160,8 +163,8 @@ export default function TimeGrid({
     const count = getAvailableCount(slotKey);
     const passesFilter = minParticipants == null || count >= minParticipants;
 
-    if (hoveredParticipant) {
-      const participant = responses[hoveredParticipant];
+    if (lensParticipant) {
+      const participant = responses[lensParticipant];
       const isAvailable = participant?.availabilities[slotKey] ?? false;
       if (!passesFilter) return { cls: 'bg-gray-100 dark:bg-gray-700' };
       return isAvailable
@@ -186,6 +189,60 @@ export default function TimeGrid({
 
   return (
     <div>
+      {pinnedParticipant && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg bg-brand-50 dark:bg-brand-900/40 px-3 py-2 text-sm text-brand-800 dark:text-brand-200">
+          <span role="status">
+            Viewing {responses[pinnedParticipant]?.name ?? pinnedParticipant}
+            ’s availability
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setPinnedParticipant(null)}
+          >
+            Stop viewing
+          </Button>
+        </div>
+      )}
+
+      {participantCount > 0 && (
+        <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Participants ({participantCount})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(responses).map(([entryKey, r]) => {
+              const isPinned = pinnedParticipant === entryKey;
+              const isLens = lensParticipant === entryKey;
+              return (
+                <Button
+                  key={entryKey}
+                  variant="secondary"
+                  size="sm"
+                  className={`min-h-11 py-2 rounded-full text-xs font-normal ${
+                    isLens
+                      ? 'bg-brand-500 dark:bg-brand-500 text-white dark:text-white hover:bg-brand-500 dark:hover:bg-brand-500'
+                      : 'bg-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  } ${isPinned ? 'ring-2 ring-brand-400 ring-offset-1 dark:ring-offset-gray-800' : ''}`}
+                  onFocus={() => onHoverParticipant(entryKey)}
+                  onBlur={() => onHoverParticipant(null)}
+                  onMouseEnter={() => onHoverParticipant(entryKey)}
+                  onMouseLeave={() => onHoverParticipant(null)}
+                  onClick={() =>
+                    setPinnedParticipant((prev) =>
+                      prev === entryKey ? null : entryKey
+                    )
+                  }
+                  aria-pressed={isPinned}
+                >
+                  {r.name}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div
         className="overflow-x-auto"
         role="grid"
@@ -307,35 +364,6 @@ export default function TimeGrid({
         ))}
         <span>More available</span>
       </div>
-
-      {participantCount > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Participants ({participantCount})
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(responses).map(([entryKey, r]) => (
-              <Button
-                key={entryKey}
-                variant="secondary"
-                size="sm"
-                className={`min-h-11 py-2 rounded-full text-xs font-normal ${
-                  hoveredParticipant === entryKey
-                    ? 'bg-brand-500 dark:bg-brand-500 text-white dark:text-white hover:bg-brand-500 dark:hover:bg-brand-500'
-                    : 'bg-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-                onFocus={() => onHoverParticipant(entryKey)}
-                onBlur={() => onHoverParticipant(null)}
-                onMouseEnter={() => onHoverParticipant(entryKey)}
-                onMouseLeave={() => onHoverParticipant(null)}
-                aria-pressed={hoveredParticipant === entryKey}
-              >
-                {r.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {activeSlot && !isEditing && (
         <div
