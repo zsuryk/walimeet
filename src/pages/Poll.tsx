@@ -35,6 +35,19 @@ export default function Poll() {
     []
   );
 
+  const handleSetSlots = useCallback(
+    (slotKeys: string[], value: boolean) => {
+      setMyAvailabilities((prev) => {
+        const next = { ...prev };
+        slotKeys.forEach((key) => {
+          next[key] = value;
+        });
+        return next;
+      });
+    },
+    []
+  );
+
   // Load previous response when entering edit mode
   useEffect(() => {
     if (!isEditing || !poll) return;
@@ -140,12 +153,23 @@ export default function Poll() {
           </div>
         </div>
 
-        {/* Share & participant count */}
+        {/* Share, edit & participant count */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-sm text-gray-500 dark:text-gray-400">
             {Object.keys(poll.responses).length} response(s)
           </div>
-          <ShareButton pollId={poll.id} />
+          <div className="flex items-center gap-3">
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={handleEnterEdit}
+                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
+              >
+                Edit availability
+              </button>
+            )}
+            <ShareButton pollId={poll.id} />
+          </div>
         </div>
 
         {/* Time grid */}
@@ -156,25 +180,13 @@ export default function Poll() {
             slotMinutes={poll.slotMinutes}
             responses={poll.responses}
             onToggle={isEditing ? handleToggle : undefined}
+            onSetSlots={isEditing ? handleSetSlots : undefined}
             myAvailabilities={isEditing ? myAvailabilities : {}}
             hoveredParticipant={isEditing ? null : hoveredParticipant}
             onHoverParticipant={isEditing ? () => {} : setHoveredParticipant}
             isEditing={isEditing}
           />
         </div>
-
-        {/* Display mode: Edit button */}
-        {!isEditing && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <button
-              type="button"
-              onClick={handleEnterEdit}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
-            >
-              Edit availability
-            </button>
-          </div>
-        )}
 
         {/* Edit mode: Name input + Submit/Cancel */}
         {isEditing && (

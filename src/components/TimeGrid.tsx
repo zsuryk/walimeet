@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, Fragment } from 'react';
 import { generateTimeSlots } from '../lib/timezone';
 
 interface TimeGridProps {
@@ -7,6 +7,7 @@ interface TimeGridProps {
   slotMinutes: number;
   responses: Record<string, { name: string; availabilities: Record<string, boolean> }>;
   onToggle: ((slotKey: string) => void) | undefined;
+  onSetSlots: ((slotKeys: string[], value: boolean) => void) | undefined;
   myAvailabilities: Record<string, boolean>;
   hoveredParticipant: string | null;
   onHoverParticipant: (name: string | null) => void;
@@ -19,6 +20,7 @@ export default function TimeGrid({
   slotMinutes,
   responses,
   onToggle,
+  onSetSlots,
   myAvailabilities,
   hoveredParticipant,
   onHoverParticipant,
@@ -52,28 +54,26 @@ export default function TimeGrid({
 
   const handleMouseDown = useCallback(
     (slotKey: string) => {
-      if (!onToggle) return;
+      if (!onToggle || !onSetSlots) return;
       const currentValue = myAvailabilities[slotKey] ?? false;
       const newValue = !currentValue;
       setDragValue(newValue);
       setIsDragging(true);
-      onToggle(slotKey);
+      onSetSlots([slotKey], newValue);
     },
-    [myAvailabilities, onToggle]
+    [myAvailabilities, onToggle, onSetSlots]
   );
 
   const handleMouseEnter = useCallback(
     (slotKey: string) => {
       setHoveredSlot(slotKey);
-      if (!onToggle) return;
-      if (isDragging && dragValue !== null) {
-        const currentValue = myAvailabilities[slotKey] ?? false;
-        if (currentValue !== dragValue) {
-          onToggle(slotKey);
-        }
+      if (!onSetSlots || !isDragging || dragValue === null) return;
+      const currentValue = myAvailabilities[slotKey] ?? false;
+      if (currentValue !== dragValue) {
+        onSetSlots([slotKey], dragValue);
       }
     },
-    [isDragging, dragValue, myAvailabilities, onToggle]
+    [isDragging, dragValue, myAvailabilities, onSetSlots]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -81,12 +81,7 @@ export default function TimeGrid({
     setDragValue(null);
   }, []);
 
-  const formatTimeLabel = (time: string) => {
-    const [h, m] = time.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour12 = h % 12 || 12;
-    return m === 0 ? `${hour12} ${period}` : `${hour12}:${String(m).padStart(2, '0')} ${period}`;
-  };
+  const formatTimeLabel = (time: string) => time;
 
   const formatDateLabel = (date: string) => {
     const d = new Date(date + 'T00:00:00');
@@ -101,19 +96,16 @@ export default function TimeGrid({
   const getSlotColor = (slotKey: string) => {
     const isMyAvailable = myAvailabilities[slotKey] ?? false;
 
-    // When hovering a participant, show only their availability
     if (hoveredParticipant) {
       const participant = responses[hoveredParticipant];
       const isAvailable = participant?.availabilities[slotKey] ?? false;
       return isAvailable ? 'rgba(34, 197, 94, 0.5)' : 'rgba(229, 231, 235, 0.5)';
     }
 
-    // No responses yet - show only my selection
     if (participantCount === 0) {
       return isMyAvailable ? 'rgba(34, 197, 94, 0.3)' : 'transparent';
     }
 
-    // Show overlay of all responses
     const count = getAvailableCount(slotKey);
     if (count === 0) return 'transparent';
 
@@ -129,12 +121,12 @@ export default function TimeGrid({
     >
       <div className="min-w-[600px]">
         {/* Date headers */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">
-          <div className="w-20 shrink-0" />
+        <div className="flex border-b border-gray-300 dark:border-gray-600">
+          <div className="w-16 shrink-0" />
           {dates.map((date) => {
             const { day, date: dateStr } = formatDateLabel(date);
             return (
-              <div key={date} className="flex-1 text-center px-1">
+              <div key={date} className="flex-1 text-center px-1 py-2 border-l border-gray-300 dark:border-gray-600">
                 <div className="text-xs text-gray-500 dark:text-gray-400">{day}</div>
                 <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{dateStr}</div>
               </div>
@@ -142,50 +134,40 @@ export default function TimeGrid({
           })}
         </div>
 
-        {/* Time slots */}
-        <div className="space-y-1">
+        {/* Time grid */}
+        <div className="grid" style={{ gridTemplateColumns: `64px repeat(${dates.length}, 1fr)` }}>
           {slots.map((time) => (
-            <div key={time} className="flex items-center">
-              <div className="w-20 shrink-0 text-xs text-gray-500 dark:text-gray-400 pr-2 text-right">
+            <Fragment key={time}>
+              <div className="text-xs text-gray-500 dark:text-gray-400 pr-2 text-right py-0 border-b border-gray-200 dark:border-gray-700 flex items-start justify-end pt-0 h-8">
                 {formatTimeLabel(time)}
               </div>
               {dates.map((date) => {
                 const slotKey = getSlotKey(date, time);
-                const isMyAvailable = myAvailabilities[slotKey] ?? false;
                 const count = getAvailableCount(slotKey);
                 const bgColor = getSlotColor(slotKey);
                 const isHovered = hoveredSlot === slotKey;
+                const showCount = participantCount > 0 && count > 0;
 
                 return (
                   <div
                     key={slotKey}
-                    className="flex-1 px-0.5"
+                    className={`h-8 border-l border-b border-gray-200 dark:border-gray-700 ${isHovered ? 'ring-1 ring-inset ring-green-400' : ''} ${isEditing ? 'cursor-pointer' : ''}`}
+                    style={{ backgroundColor: bgColor }}
                     onMouseEnter={() => handleMouseEnter(slotKey)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleMouseDown(slotKey);
+                    }}
                   >
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleMouseDown(slotKey);
-                      }}
-                      className={`
-                        w-full h-8 rounded-sm text-xs font-medium transition-colors relative
-                        ${isEditing ? 'cursor-pointer' : 'cursor-default'}
-                        ${isEditing && isMyAvailable ? 'border-2 border-green-600' : 'border-2 border-transparent'}
-                        ${isHovered ? 'ring-2 ring-green-400' : ''}
-                      `}
-                      style={{ backgroundColor: bgColor }}
-                    >
-                      {count > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-green-600 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">
-                          {count}
-                        </span>
-                      )}
-                    </button>
+                    {showCount && (
+                      <span className="flex items-center justify-center h-full text-[10px] font-medium text-green-900 dark:text-green-100">
+                        {count}
+                      </span>
+                    )}
                   </div>
                 );
               })}
-            </div>
+            </Fragment>
           ))}
         </div>
 
@@ -215,7 +197,7 @@ export default function TimeGrid({
         )}
 
         {/* Tooltip */}
-        {hoveredSlot && (
+        {hoveredSlot && !isEditing && (
           <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg shadow-lg z-50">
             {getAvailableNames(hoveredSlot).length > 0
               ? getAvailableNames(hoveredSlot).join(', ')
