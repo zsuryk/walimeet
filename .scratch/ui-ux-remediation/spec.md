@@ -1,6 +1,6 @@
 # Spec: Walimeet UI/UX remediation — remaining work
 
-Status: ready-for-agent
+Status: implemented
 
 ## Problem Statement
 
