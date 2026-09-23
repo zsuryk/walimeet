@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import Button from './ui/Button';
+import Field, { inputClasses } from './ui/Field';
 
 interface SubmitModalProps {
   isOpen: boolean;
@@ -12,6 +13,9 @@ interface SubmitModalProps {
   onCancelEdit: () => void;
   error?: string | null;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  collisionName?: string | null;
+  onOverwrite?: () => void;
+  onChangeName?: () => void;
 }
 
 export default function SubmitModal({
@@ -24,8 +28,15 @@ export default function SubmitModal({
   onCancelEdit,
   error,
   returnFocusRef,
+  collisionName = null,
+  onOverwrite,
+  onChangeName,
 }: SubmitModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const changeNameBtnRef = useRef<HTMLButtonElement>(null);
+  const wasColliding = useRef(false);
+  const colliding = collisionName != null;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -42,6 +53,15 @@ export default function SubmitModal({
       returnFocusRef?.current?.focus();
     };
   }, [isOpen, returnFocusRef]);
+
+  useEffect(() => {
+    if (colliding && !wasColliding.current) {
+      changeNameBtnRef.current?.focus();
+    } else if (!colliding && wasColliding.current) {
+      nameInputRef.current?.focus();
+    }
+    wasColliding.current = colliding;
+  }, [colliding]);
 
   if (!isOpen) return null;
 
@@ -88,61 +108,97 @@ export default function SubmitModal({
           id="submit-modal-title"
           className="text-xl font-bold text-gray-900 dark:text-white mb-2"
         >
-          Submit availability
+          {colliding ? 'Name already taken' : 'Submit availability'}
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-          Enter your name to confirm and submit your availability.
-        </p>
 
-        <label
-          htmlFor="participant-name"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
-          Your name
-        </label>
-        <input
-          type="text"
-          id="participant-name"
-          required
-          aria-required="true"
-          value={defaultName}
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Your name"
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && defaultName.trim()) {
-              onConfirm(defaultName);
-            }
-          }}
-          className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 mb-4"
-        />
+        {colliding ? (
+          <>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              A response already exists for this name.
+            </p>
 
-        {error && (
-          <div
-            role="alert"
-            className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg px-3 py-2 text-sm mb-3"
-          >
-            {error}
-          </div>
+            {error && (
+              <div
+                role="alert"
+                className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg px-3 py-2 text-sm mb-3"
+              >
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                ref={changeNameBtnRef}
+                variant="secondary"
+                className="flex-1"
+                onClick={onChangeName}
+                disabled={isSubmitting}
+              >
+                Change name
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={onOverwrite}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Overwrite'}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Enter your name to confirm and submit your availability.
+            </p>
+
+            <Field label="Your name" htmlFor="participant-name">
+              <input
+                ref={nameInputRef}
+                type="text"
+                id="participant-name"
+                required
+                aria-required="true"
+                value={defaultName}
+                onChange={(e) => onNameChange(e.target.value)}
+                placeholder="Your name"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && defaultName.trim()) {
+                    onConfirm(defaultName);
+                  }
+                }}
+                className={`${inputClasses} mb-4`}
+              />
+            </Field>
+            {error && (
+              <div
+                role="alert"
+                className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg px-3 py-2 text-sm mb-3"
+              >
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={onCancelEdit}
+              >
+                Discard changes
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={() => onConfirm(defaultName)}
+                disabled={!defaultName.trim() || isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}
+              </Button>
+            </div>
+          </>
         )}
-
-        <div className="flex gap-3">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            onClick={onCancelEdit}
-          >
-            Discard changes
-          </Button>
-          <Button
-            variant="primary"
-            className="flex-1"
-            onClick={() => onConfirm(defaultName)}
-            disabled={!defaultName.trim() || isSubmitting}
-          >
-            {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}
-          </Button>
-        </div>
       </div>
     </div>
   );

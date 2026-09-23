@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { generateTimeSlots } from '../lib/timezone';
 import { formatTimeLabel } from '../lib/format';
+import Button from './ui/Button';
 
 interface TimeGridProps {
   dates: string[];
@@ -258,7 +259,7 @@ export default function TimeGrid({
                     tabIndex={focusPos.row === r && focusPos.col === c ? 0 : -1}
                     aria-label={`${day} ${dateStr}, ${formatTimeLabel(time)}, ${availabilityText}`}
                     aria-selected={onSetSlots ? (myAvailabilities[slotKey] ?? false) : undefined}
-                    className={`h-11 flex items-center justify-center border-l border-b border-gray-200 dark:border-gray-700 ${bgCls} ${isHovered ? 'ring-1 ring-inset ring-indigo-400' : ''} ${isEditing ? 'cursor-pointer' : ''} ${filteredOut ? 'opacity-30' : ''} focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500`}
+                    className={`h-11 flex items-center justify-center border-l border-b border-gray-200 dark:border-gray-700 ${bgCls} ${isHovered ? 'ring-1 ring-inset ring-brand-400' : ''} ${isEditing ? 'cursor-pointer' : ''} ${filteredOut ? 'opacity-30' : ''} focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500`}
                     style={{
                       touchAction: onSetSlots ? 'none' : undefined,
                       backgroundColor,
@@ -278,7 +279,7 @@ export default function TimeGrid({
                     onClick={(e) => e.preventDefault()}
                   >
                     {showCount && (
-                      <span className="pointer-events-none mx-auto my-auto rounded bg-white/90 dark:bg-gray-900/80 px-1.5 text-[10px] font-medium text-indigo-800 dark:text-indigo-100">
+                      <span className="pointer-events-none mx-auto my-auto rounded bg-white/90 dark:bg-gray-900/80 px-1.5 text-[10px] font-medium text-brand-800 dark:text-brand-100">
                         {count}
                       </span>
                     )}
@@ -310,13 +311,14 @@ export default function TimeGrid({
           </p>
           <div className="flex flex-wrap gap-2">
             {Object.entries(responses).map(([entryKey, r]) => (
-              <button
+              <Button
                 key={entryKey}
-                type="button"
-                className={`min-h-11 px-3 py-2 text-xs rounded-full cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-indigo-500 ${
+                variant="secondary"
+                size="sm"
+                className={`min-h-11 py-2 rounded-full text-xs font-normal ${
                   hoveredParticipant === entryKey
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ? 'bg-brand-500 dark:bg-brand-500 text-white dark:text-white hover:bg-brand-500 dark:hover:bg-brand-500'
+                    : 'bg-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600'
                 }`}
                 onFocus={() => onHoverParticipant(entryKey)}
                 onBlur={() => onHoverParticipant(null)}
@@ -325,7 +327,7 @@ export default function TimeGrid({
                 aria-pressed={hoveredParticipant === entryKey}
               >
                 {r.name}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

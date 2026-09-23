@@ -1,4 +1,5 @@
 import { formatTimeLabel } from '../lib/format';
+import { inputClasses, labelClasses } from './ui/Field';
 
 interface TimeRangePickerProps {
   start: string;
@@ -16,23 +17,18 @@ export default function TimeRangePicker({
   onChange,
 }: TimeRangePickerProps) {
   const valid = end > start;
-  const selectClass =
-    'w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500';
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1">
-        <label
-          htmlFor="time-from"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
+        <label htmlFor="time-from" className={labelClasses}>
           From
         </label>
         <select
           id="time-from"
           value={start}
           onChange={(e) => onChange({ start: e.target.value, end })}
-          className={selectClass}
+          className={inputClasses}
         >
           {TIMES.map((t) => (
             <option key={t} value={t}>
@@ -42,10 +38,7 @@ export default function TimeRangePicker({
         </select>
       </div>
       <div className="flex-1">
-        <label
-          htmlFor="time-to"
-          className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-        >
+        <label htmlFor="time-to" className={labelClasses}>
           To
         </label>
         <select
@@ -54,7 +47,7 @@ export default function TimeRangePicker({
           onChange={(e) => onChange({ start, end: e.target.value })}
           aria-invalid={!valid}
           aria-describedby={valid ? undefined : 'time-range-error'}
-          className={selectClass}
+          className={inputClasses}
         >
           {TIMES.map((t) => (
             <option key={t} value={t}>

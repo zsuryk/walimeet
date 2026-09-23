@@ -181,7 +181,7 @@ export default function Create() {
         {draftRestored && (
           <div
             role="status"
-            className="flex items-center justify-between gap-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-lg px-4 py-3 text-sm mb-6"
+            className="flex items-center justify-between gap-3 bg-brand-50 dark:bg-brand-900/30 text-brand-800 dark:text-brand-300 rounded-lg px-4 py-3 text-sm mb-6"
           >
             <span>We restored your unsaved poll draft.</span>
             <Button variant="ghost" size="sm" onClick={startOver}>
@@ -200,7 +200,7 @@ export default function Create() {
                   aria-label={`Step ${s}`}
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     step >= s
-                      ? 'bg-indigo-600 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }`}
                 >
@@ -209,7 +209,7 @@ export default function Create() {
                 {s < 3 && (
                   <div
                     className={`w-12 h-1 ${
-                      step > s ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+                      step > s ? 'bg-brand-600' : 'bg-gray-200 dark:bg-gray-700'
                     }`}
                   />
                 )}
@@ -218,13 +218,13 @@ export default function Create() {
             <span className="sr-only">Step {step} of 3</span>
           </div>
           <div className="flex justify-center gap-8 mb-8">
-            <span className={step === 1 ? 'text-xs text-indigo-600 dark:text-indigo-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
+            <span className={step === 1 ? 'text-xs text-brand-600 dark:text-brand-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
               Dates
             </span>
-            <span className={step === 2 ? 'text-xs text-indigo-600 dark:text-indigo-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
+            <span className={step === 2 ? 'text-xs text-brand-600 dark:text-brand-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
               Times
             </span>
-            <span className={step === 3 ? 'text-xs text-indigo-600 dark:text-indigo-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
+            <span className={step === 3 ? 'text-xs text-brand-600 dark:text-brand-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
               Details
             </span>
           </div>
@@ -396,8 +396,8 @@ export default function Create() {
 
             {/* Summary */}
             <Card className="p-6 text-sm">
-              <p className="font-medium text-indigo-800 dark:text-indigo-300 mb-1">Poll summary</p>
-              <p className="text-indigo-700 dark:text-indigo-400">
+              <p className="font-medium text-brand-800 dark:text-brand-300 mb-1">Poll summary</p>
+              <p className="text-brand-700 dark:text-brand-400">
                 {selectedDates.length} day{selectedDates.length === 1 ? '' : 's'} · {timeRange.start} to {timeRange.end} · {timezone.replace(/_/g, ' ')}
               </p>
             </Card>

@@ -14,6 +14,8 @@ import {
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Day } from 'date-fns';
+import Button from './ui/Button';
+import Card from './ui/Card';
 
 const weekStartsOn = (() => {
   try {
@@ -108,36 +110,39 @@ export default function Calendar({ selectedDates, onToggleDate }: CalendarProps)
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4">
+    <Card className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           aria-label="Previous month"
           onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-          className="min-h-11 min-w-11 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-indigo-500"
+          className="min-h-11 min-w-11 p-2 text-inherit dark:text-inherit"
         >
           <ChevronLeft className="w-5 h-5" aria-hidden="true" />
-        </button>
+        </Button>
         <div className="flex flex-col items-center">
           <h3 aria-live="polite" className="font-semibold text-gray-800 dark:text-gray-100">
             {format(currentMonth, 'MMMM yyyy')}
           </h3>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setCurrentMonth(new Date())}
-            className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-1 min-h-11"
+            className="text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline hover:bg-transparent dark:hover:bg-transparent px-2 py-1 min-h-11"
           >
             Today
-          </button>
+          </Button>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           aria-label="Next month"
           onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-          className="min-h-11 min-w-11 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-indigo-500"
+          className="min-h-11 min-w-11 p-2 text-inherit dark:text-inherit"
         >
           <ChevronRight className="w-5 h-5" aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       <div
@@ -162,10 +167,19 @@ export default function Calendar({ selectedDates, onToggleDate }: CalendarProps)
           const selected = isSelected(day);
           const past = day < new Date(new Date().setHours(0, 0, 0, 0));
 
+          const stateClasses = past
+            ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed hover:bg-transparent dark:hover:bg-transparent'
+            : selected
+              ? 'bg-brand-500 text-white dark:text-white hover:bg-brand-600 dark:hover:bg-brand-600'
+              : !inMonth
+                ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                : 'text-gray-700 dark:text-gray-200 hover:bg-brand-100 dark:hover:bg-brand-900/50';
+
           return (
-            <button
+            <Button
               key={day.toISOString()}
-              type="button"
+              variant="ghost"
+              size="sm"
               disabled={past}
               title={past ? "Past dates can't be scheduled" : undefined}
               aria-label={format(day, 'EEEE, MMMM d, yyyy')}
@@ -182,20 +196,15 @@ export default function Calendar({ selectedDates, onToggleDate }: CalendarProps)
               }}
               onPointerEnter={() => handlePointerEnter(day, past)}
               onClick={(e) => handleDayClick(e, day)}
-              className={`
-                aspect-square min-h-11 min-w-11 rounded-lg text-sm font-medium transition-colors
-                ${!inMonth && !selected ? 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700' : ''}
-                ${past ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed' : ''}
-                ${!past && inMonth && !selected ? 'hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-gray-700 dark:text-gray-200' : ''}
-                ${selected ? 'bg-indigo-500 text-white hover:bg-indigo-600' : ''}
-                ${today && !selected ? 'ring-2 ring-indigo-300 dark:ring-indigo-700' : ''}
-              `}
+              className={`aspect-square min-h-11 min-w-11 px-0 py-0 text-sm font-medium disabled:opacity-100 ${stateClasses} ${
+                today && !selected ? 'ring-2 ring-brand-300 dark:ring-brand-700' : ''
+              }`}
             >
               {format(day, 'd')}
-            </button>
+            </Button>
           );
         })}
       </div>
-    </div>
+    </Card>
   );
 }

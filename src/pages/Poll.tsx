@@ -1,13 +1,25 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { FocusEvent } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
-import { Calendar, Clock, Globe, Lightbulb, ArrowLeft } from 'lucide-react';
+import {
+  Calendar,
+  Clock,
+  Globe,
+  Lightbulb,
+  ArrowLeft,
+  User,
+  Check,
+} from 'lucide-react';
 import TimeGrid from '../components/TimeGrid';
 import ShareButton from '../components/ShareButton';
 import ThemeToggle from '../components/ThemeToggle';
 import FilterButton from '../components/FilterButton';
 import SubmitModal from '../components/SubmitModal';
-import Button from '../components/ui/Button';
+import Button, {
+  buttonBaseClasses,
+  buttonVariantClasses,
+} from '../components/ui/Button';
+import Card from '../components/ui/Card';
 import { getPoll, respondToPoll, ApiError } from '../lib/api';
 import {
   loadRememberedResponse,
@@ -15,6 +27,7 @@ import {
   clearRememberedResponse,
 } from '../lib/remember';
 import { formatTimeLabel, formatDayMonth } from '../lib/format';
+import { twMerge } from '../lib/cn';
 import type { Poll as PollType } from '../lib/types';
 
 export default function Poll() {
@@ -34,6 +47,7 @@ export default function Poll() {
   const [minParticipants, setMinParticipants] = useState<number | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [collisionName, setCollisionName] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [createdNudge, setCreatedNudge] = useState(
     () => searchParams.get('created') === '1'
@@ -125,6 +139,7 @@ export default function Poll() {
     setLoadedFromMemory(false);
     setConfirmDiscard(false);
     setShowSubmitModal(false);
+    setCollisionName(null);
     setMyAvailabilities({});
     setParticipantName('');
     setSubmitError(null);
@@ -151,6 +166,7 @@ export default function Poll() {
     if (!hasChanges && !loadedFromMemory) return;
     setSubmitError(null);
     setConfirmDiscard(false);
+    setCollisionName(null);
     setShowSubmitModal(true);
   };
 
@@ -164,7 +180,7 @@ export default function Poll() {
     el?.focus();
   };
 
-  const handleConfirmSubmit = async (name: string) => {
+  const performSubmit = async (name: string) => {
     if (!poll) return;
     setSubmitting(true);
 
@@ -188,6 +204,7 @@ export default function Poll() {
       setLoadedFromMemory(false);
       setConfirmDiscard(false);
       setShowSubmitModal(false);
+      setCollisionName(null);
       setMyAvailabilities({});
       setParticipantName('');
       setSubmitError(null);
@@ -199,6 +216,34 @@ export default function Poll() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleConfirmSubmit = async (name: string) => {
+    if (!poll) return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    const responseKey = trimmed.toLowerCase();
+    const remembered = loadRememberedResponse(poll.id);
+    const rememberedKey = remembered
+      ? remembered.name.trim().toLowerCase()
+      : null;
+
+    if (Object.hasOwn(poll.responses, responseKey) && responseKey !== rememberedKey) {
+      setCollisionName(name);
+      return;
+    }
+
+    await performSubmit(name);
+  };
+
+  const handleOverwrite = () => {
+    if (!collisionName) return;
+    void performSubmit(collisionName);
+  };
+
+  const handleChangeName = () => {
+    setCollisionName(null);
   };
 
   if (loading) {
@@ -235,7 +280,11 @@ export default function Poll() {
               </p>
               <Link
                 to="/create"
-                className="font-semibold px-4 py-2 rounded-lg transition-colors text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+                className={twMerge(
+                  buttonBaseClasses,
+                  buttonVariantClasses.primary,
+                  'px-4 py-2 text-sm'
+                )}
               >
                 Create a new poll
               </Link>
@@ -257,7 +306,7 @@ export default function Poll() {
               </h1>
               <Link
                 to="/"
-                className="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
+                className="inline-flex items-center gap-1.5 text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium"
               >
                 <ArrowLeft className="w-4 h-4" aria-hidden="true" />
                 Back to home
@@ -270,6 +319,7 @@ export default function Poll() {
   }
 
   const responseCount = Object.keys(poll.responses).length;
+  const creatorDisplay = poll.creatorName?.trim() || 'Anonymous';
   const dayCount = poll.dates.length;
   const expiresAt = new Date(poll.expiresAt).getTime();
   const msUntilExpiry = expiresAt - Date.now();
@@ -308,7 +358,7 @@ export default function Poll() {
         <div className="mb-8">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-indigo-400 dark:hover:text-indigo-300 mb-2"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-brand-400 dark:hover:text-brand-300 mb-2"
           >
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
             Walimeet
@@ -318,6 +368,10 @@ export default function Poll() {
             <p className="text-gray-600 dark:text-gray-300">{poll.description}</p>
           )}
           <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-gray-500 dark:text-gray-400">
+            <span className="inline-flex items-center gap-1.5">
+              <User className="w-4 h-4" aria-hidden="true" />
+              Created by {creatorDisplay}
+            </span>
             <span className="inline-flex items-center gap-1.5">
               <Calendar className="w-4 h-4" aria-hidden="true" />
               {dayCount} day{dayCount === 1 ? '' : 's'}
@@ -346,8 +400,9 @@ export default function Poll() {
           <div className="text-sm text-gray-500 dark:text-gray-400">
             {responseCount} response{responseCount === 1 ? '' : 's'}
             {savedFlash && (
-              <span role="status" className="ml-2 text-green-700 dark:text-green-400">
-                ✓ Saved
+              <span role="status" className="ml-2 inline-flex items-center gap-1 text-green-700 dark:text-green-400">
+                <Check className="w-4 h-4" aria-hidden="true" />
+                Saved
               </span>
             )}
           </div>
@@ -357,7 +412,7 @@ export default function Poll() {
               ref={editButtonRef}
               tabIndex={-1}
               onFocus={handleActionAreaFocus}
-              className="inline-flex flex-wrap items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-indigo-500"
+              className="inline-flex flex-wrap items-center gap-3 rounded-lg"
             >
               {!isEditing ? (
                 <Button
@@ -397,7 +452,7 @@ export default function Poll() {
             <span
               className={
                 createdNudge
-                  ? 'inline-flex rounded-lg ring-2 ring-indigo-400 animate-pulse'
+                  ? 'inline-flex rounded-lg ring-2 ring-brand-400 animate-pulse'
                   : 'contents'
               }
             >
@@ -432,7 +487,7 @@ export default function Poll() {
           </div>
         )}
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6">
+        <Card className="p-4 mb-6">
           <TimeGrid
             dates={poll.dates}
             timeRange={poll.timeRange}
@@ -445,12 +500,12 @@ export default function Poll() {
             isEditing={isEditing}
             minParticipants={minParticipants}
           />
-        </div>
+        </Card>
 
         {isEditing && (
           <div
             role="status"
-            className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-200"
+            className="bg-brand-50 dark:bg-brand-900/30 rounded-xl p-4 text-sm text-brand-800 dark:text-brand-200"
           >
             <span className="flex items-center gap-1.5 flex-wrap">
               <Lightbulb className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -469,6 +524,7 @@ export default function Poll() {
         onClose={() => {
           setShowSubmitModal(false);
           setSubmitError(null);
+          setCollisionName(null);
         }}
         onConfirm={handleConfirmSubmit}
         defaultName={participantName}
@@ -476,6 +532,9 @@ export default function Poll() {
         onCancelEdit={exitEdit}
         error={submitError}
         returnFocusRef={editButtonRef}
+        collisionName={collisionName}
+        onOverwrite={handleOverwrite}
+        onChangeName={handleChangeName}
       />
     </div>
   );

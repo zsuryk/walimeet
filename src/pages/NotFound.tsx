@@ -1,5 +1,10 @@
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import {
+  buttonBaseClasses,
+  buttonVariantClasses,
+} from '../components/ui/Button';
+import { twMerge } from '../lib/cn';
 
 export default function NotFound() {
   return (
@@ -17,7 +22,11 @@ export default function NotFound() {
         </p>
         <Link
           to="/create"
-          className="min-h-11 inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+          className={twMerge(
+            buttonBaseClasses,
+            buttonVariantClasses.primary,
+            'min-h-11 px-6 py-3'
+          )}
         >
           Create a new poll
         </Link>
