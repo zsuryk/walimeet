@@ -21,7 +21,7 @@ export default function Home() {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-2xl">1</span>
               </div>
               <h3 className="font-medium text-gray-800 dark:text-gray-100 mb-1">Pick dates</h3>
@@ -30,7 +30,7 @@ export default function Home() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-2xl">2</span>
               </div>
               <h3 className="font-medium text-gray-800 dark:text-gray-100 mb-1">Share the link</h3>
@@ -39,7 +39,7 @@ export default function Home() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-3">
+              <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center mx-auto mb-3">
                 <span className="text-2xl">3</span>
               </div>
               <h3 className="font-medium text-gray-800 dark:text-gray-100 mb-1">Find the best time</h3>
@@ -52,7 +52,7 @@ export default function Home() {
 
         <Link
           to="/create"
-          className="inline-block bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
+          className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
         >
           Create a Poll
         </Link>

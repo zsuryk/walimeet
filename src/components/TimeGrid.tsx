@@ -14,6 +14,15 @@ interface TimeGridProps {
   isEditing: boolean;
 }
 
+// Blue-to-violet gradient based on intensity (0..1)
+function intensityColor(intensity: number, alpha: number): string {
+  // hue: 210 (blue) → 265 (violet)
+  const hue = 210 + intensity * 55;
+  const sat = 70 + intensity * 10;
+  const light = 75 - intensity * 25;
+  return `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
+}
+
 export default function TimeGrid({
   dates,
   timeRange,
@@ -99,18 +108,20 @@ export default function TimeGrid({
     if (hoveredParticipant) {
       const participant = responses[hoveredParticipant];
       const isAvailable = participant?.availabilities[slotKey] ?? false;
-      return isAvailable ? 'rgba(34, 197, 94, 0.5)' : 'rgba(229, 231, 235, 0.5)';
+      return isAvailable
+        ? 'hsla(240, 80%, 55%, 0.6)'
+        : 'rgba(229, 231, 235, 0.5)';
     }
 
     if (participantCount === 0) {
-      return isMyAvailable ? 'rgba(34, 197, 94, 0.3)' : 'transparent';
+      return isMyAvailable ? 'hsla(240, 80%, 55%, 0.35)' : 'transparent';
     }
 
     const count = getAvailableCount(slotKey);
     if (count === 0) return 'transparent';
 
     const intensity = count / participantCount;
-    return `rgba(34, 197, 94, ${0.2 + intensity * 0.6})`;
+    return intensityColor(intensity, 0.25 + intensity * 0.55);
   };
 
   return (
@@ -151,7 +162,7 @@ export default function TimeGrid({
                 return (
                   <div
                     key={slotKey}
-                    className={`h-8 border-l border-b border-gray-200 dark:border-gray-700 ${isHovered ? 'ring-1 ring-inset ring-green-400' : ''} ${isEditing ? 'cursor-pointer' : ''}`}
+                    className={`h-8 border-l border-b border-gray-200 dark:border-gray-700 ${isHovered ? 'ring-1 ring-inset ring-indigo-400' : ''} ${isEditing ? 'cursor-pointer' : ''}`}
                     style={{ backgroundColor: bgColor }}
                     onMouseEnter={() => handleMouseEnter(slotKey)}
                     onMouseDown={(e) => {
@@ -160,7 +171,7 @@ export default function TimeGrid({
                     }}
                   >
                     {showCount && (
-                      <span className="flex items-center justify-center h-full text-[10px] font-medium text-green-900 dark:text-green-100">
+                      <span className="flex items-center justify-center h-full text-[10px] font-medium text-indigo-900 dark:text-indigo-100">
                         {count}
                       </span>
                     )}
@@ -183,7 +194,7 @@ export default function TimeGrid({
                   key={r.name}
                   className={`px-2 py-1 text-xs rounded-full cursor-pointer transition-colors ${
                     hoveredParticipant === r.name
-                      ? 'bg-green-500 text-white'
+                      ? 'bg-indigo-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                   onMouseEnter={() => onHoverParticipant(r.name)}

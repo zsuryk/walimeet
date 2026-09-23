@@ -81,7 +81,7 @@ export default function Create() {
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                   step >= s
-                    ? 'bg-green-500 text-white'
+                    ? 'bg-indigo-500 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}
               >
@@ -90,7 +90,7 @@ export default function Create() {
               {s < 3 && (
                 <div
                   className={`w-12 h-1 ${
-                    step > s ? 'bg-green-500' : 'bg-gray-200 dark:bg-gray-700'
+                    step > s ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'
                   }`}
                 />
               )}
@@ -114,7 +114,7 @@ export default function Create() {
               type="button"
               onClick={() => setStep(2)}
               disabled={selectedDates.length === 0}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
             >
               Next
             </button>
@@ -141,7 +141,7 @@ export default function Create() {
               <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
                 {allTimezones.map((tz) => (
                   <option key={tz} value={tz}>
@@ -161,7 +161,7 @@ export default function Create() {
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-colors"
               >
                 Next
               </button>
@@ -185,7 +185,7 @@ export default function Create() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Team standup"
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -197,7 +197,7 @@ export default function Create() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What's the meeting about?"
                   rows={3}
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -209,7 +209,7 @@ export default function Create() {
                   value={creatorName}
                   onChange={(e) => setCreatorName(e.target.value)}
                   placeholder="Anonymous"
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div>
@@ -219,7 +219,7 @@ export default function Create() {
                 <select
                   value={expiryDays}
                   onChange={(e) => setExpiryDays(Number(e.target.value))}
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 >
                   {[1, 2, 3, 5, 7, 10, 14].map((d) => (
                     <option key={d} value={d}>
@@ -231,9 +231,9 @@ export default function Create() {
             </div>
 
             {/* Summary */}
-            <div className="bg-green-50 dark:bg-green-900/30 rounded-xl p-4 text-sm">
-              <p className="font-medium text-green-800 dark:text-green-300 mb-1">Poll summary</p>
-              <p className="text-green-700 dark:text-green-400">
+            <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-sm">
+              <p className="font-medium text-indigo-800 dark:text-indigo-300 mb-1">Poll summary</p>
+              <p className="text-indigo-700 dark:text-indigo-400">
                 {selectedDates.length} day(s) · {timeRange.start} to {timeRange.end} · {timezone.replace(/_/g, ' ')}
               </p>
             </div>
@@ -250,7 +250,7 @@ export default function Create() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={!name || loading}
-                className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
               >
                 {loading ? 'Creating...' : 'Create Poll'}
               </button>

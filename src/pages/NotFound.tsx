@@ -16,7 +16,7 @@ export default function NotFound() {
       </p>
       <Link
         to="/"
-        className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
       >
         Create a new poll
       </Link>

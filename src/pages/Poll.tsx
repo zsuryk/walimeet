@@ -114,7 +114,7 @@ export default function Poll() {
         </h1>
         <Link
           to="/"
-          className="text-green-600 hover:text-green-700 font-medium"
+          className="text-indigo-600 hover:text-indigo-700 font-medium"
         >
           ← Back to home
         </Link>
@@ -163,7 +163,7 @@ export default function Poll() {
               <button
                 type="button"
                 onClick={handleEnterEdit}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
               >
                 Edit availability
               </button>
@@ -200,13 +200,13 @@ export default function Poll() {
                 value={participantName}
                 onChange={(e) => setParticipantName(e.target.value)}
                 placeholder="Your name"
-                className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
               <button
                 type="button"
                 onClick={handleSubmit}
                 disabled={!participantName.trim() || submitting}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
               >
                 {submitting ? 'Submitting...' : 'Submit'}
               </button>

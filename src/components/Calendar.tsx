@@ -78,9 +78,9 @@ export default function Calendar({ selectedDates, onToggleDate }: CalendarProps)
                 aspect-square rounded-lg text-sm font-medium transition-colors
                 ${!inMonth ? 'text-gray-300 dark:text-gray-600 cursor-default' : ''}
                 ${past && inMonth ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed' : ''}
-                ${!past && inMonth && !selected ? 'hover:bg-green-100 dark:hover:bg-green-900/50 text-gray-700 dark:text-gray-200' : ''}
-                ${selected ? 'bg-green-500 text-white hover:bg-green-600' : ''}
-                ${today && !selected ? 'ring-2 ring-green-300 dark:ring-green-700' : ''}
+                ${!past && inMonth && !selected ? 'hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-gray-700 dark:text-gray-200' : ''}
+                ${selected ? 'bg-indigo-500 text-white hover:bg-indigo-600' : ''}
+                ${today && !selected ? 'ring-2 ring-indigo-300 dark:ring-indigo-700' : ''}
               `}
             >
               {format(day, 'd')}
