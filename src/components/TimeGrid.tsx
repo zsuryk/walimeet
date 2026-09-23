@@ -11,6 +11,7 @@ interface TimeGridProps {
   hoveredParticipant: string | null;
   onHoverParticipant: (name: string | null) => void;
   isEditing: boolean;
+  minParticipants?: number | null;
 }
 
 // Blue-to-violet gradient based on intensity (0..1)
@@ -32,6 +33,7 @@ export default function TimeGrid({
   hoveredParticipant,
   onHoverParticipant,
   isEditing,
+  minParticipants,
 }: TimeGridProps) {
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -102,24 +104,33 @@ export default function TimeGrid({
 
   const getSlotColor = (slotKey: string) => {
     const isMyAvailable = myAvailabilities[slotKey] ?? false;
+    const count = getAvailableCount(slotKey);
+    const passesFilter = minParticipants == null || count >= minParticipants;
 
     if (hoveredParticipant) {
       const participant = responses[hoveredParticipant];
       const isAvailable = participant?.availabilities[slotKey] ?? false;
+      if (!passesFilter) return 'rgba(229, 231, 235, 0.3)';
       return isAvailable
         ? 'hsla(240, 80%, 55%, 0.6)'
         : 'rgba(229, 231, 235, 0.5)';
     }
 
+    if (!passesFilter) return 'rgba(229, 231, 235, 0.3)';
+
     if (participantCount === 0) {
       return isMyAvailable ? 'hsla(240, 80%, 55%, 0.35)' : 'transparent';
     }
 
-    const count = getAvailableCount(slotKey);
     if (count === 0) return 'transparent';
 
     const intensity = count / participantCount;
     return intensityColor(intensity, 0.25 + intensity * 0.55);
+  };
+
+  const isSlotFilteredOut = (slotKey: string) => {
+    if (minParticipants == null) return false;
+    return getAvailableCount(slotKey) < minParticipants;
   };
 
   return (
@@ -156,11 +167,12 @@ export default function TimeGrid({
                 const bgColor = getSlotColor(slotKey);
                 const isHovered = hoveredSlot === slotKey;
                 const showCount = participantCount > 0 && count > 0;
+                const filteredOut = isSlotFilteredOut(slotKey);
 
                 return (
                   <div
                     key={slotKey}
-                    className={`h-8 border-l border-b border-gray-200 dark:border-gray-700 ${isHovered ? 'ring-1 ring-inset ring-indigo-400' : ''} ${isEditing ? 'cursor-pointer' : ''}`}
+                    className={`h-8 border-l border-b border-gray-200 dark:border-gray-700 ${isHovered ? 'ring-1 ring-inset ring-indigo-400' : ''} ${isEditing ? 'cursor-pointer' : ''} ${filteredOut ? 'opacity-30' : ''}`}
                     style={{ backgroundColor: bgColor }}
                     onMouseEnter={() => handleMouseEnter(slotKey)}
                     onMouseDown={(e) => {

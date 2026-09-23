@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import TimeGrid from '../components/TimeGrid';
 import ShareButton from '../components/ShareButton';
 import ThemeToggle from '../components/ThemeToggle';
+import FilterButton from '../components/FilterButton';
 import SubmitModal from '../components/SubmitModal';
 import { getPoll, respondToPoll } from '../lib/api';
 import type { Poll as PollType } from '../lib/types';
@@ -19,6 +20,7 @@ export default function Poll() {
   const [myAvailabilities, setMyAvailabilities] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null);
+  const [minParticipants, setMinParticipants] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -180,6 +182,7 @@ export default function Poll() {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <FilterButton value={minParticipants} onChange={setMinParticipants} />
             <button
               type="button"
               onClick={handleEditButton}
@@ -207,6 +210,7 @@ export default function Poll() {
             hoveredParticipant={isEditing ? null : hoveredParticipant}
             onHoverParticipant={isEditing ? () => {} : setHoveredParticipant}
             isEditing={isEditing}
+            minParticipants={minParticipants}
           />
         </div>
 
