@@ -1,36 +1,80 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { FocusEvent } from 'react';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { Calendar, Clock, Globe, Lightbulb, ArrowLeft } from 'lucide-react';
 import TimeGrid from '../components/TimeGrid';
 import ShareButton from '../components/ShareButton';
 import ThemeToggle from '../components/ThemeToggle';
 import FilterButton from '../components/FilterButton';
 import SubmitModal from '../components/SubmitModal';
-import { getPoll, respondToPoll } from '../lib/api';
+import Button from '../components/ui/Button';
+import { getPoll, respondToPoll, ApiError } from '../lib/api';
+import {
+  loadRememberedResponse,
+  saveRememberedResponse,
+  clearRememberedResponse,
+} from '../lib/remember';
+import { formatTimeLabel, formatDayMonth } from '../lib/format';
 import type { Poll as PollType } from '../lib/types';
 
 export default function Poll() {
   const { id } = useParams<{ id: string }>();
   const [poll, setPoll] = useState<PollType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [loadedFromMemory, setLoadedFromMemory] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [participantName, setParticipantName] = useState('');
   const [myAvailabilities, setMyAvailabilities] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null);
   const [minParticipants, setMinParticipants] = useState<number | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [createdNudge, setCreatedNudge] = useState(
+    () => searchParams.get('created') === '1'
+  );
+  const editButtonRef = useRef<HTMLSpanElement>(null);
 
-  useEffect(() => {
+  const loadPoll = useCallback(async () => {
     if (!id) return;
-    getPoll(id)
-      .then(setPoll)
-      .catch(() => setError('Poll not found or expired'))
-      .finally(() => setLoading(false));
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getPoll(id);
+      setPoll(data);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err : new ApiError('Server error', null, 'server')
+      );
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
-  // Warn before closing/refreshing with unsaved changes
+  useEffect(() => {
+    loadPoll();
+  }, [loadPoll]);
+
+  useEffect(() => {
+    if (!savedFlash) return;
+    const timer = setTimeout(() => setSavedFlash(false), 3000);
+    return () => clearTimeout(timer);
+  }, [savedFlash]);
+
+  useEffect(() => {
+    if (!createdNudge) return;
+    const timer = setTimeout(() => {
+      setCreatedNudge(false);
+      setSearchParams({}, { replace: true });
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [createdNudge, setSearchParams]);
+
   useEffect(() => {
     if (!isEditing || !hasChanges) return;
     const handler = (e: BeforeUnloadEvent) => {
@@ -55,37 +99,69 @@ export default function Poll() {
     []
   );
 
-  const handleEnterEdit = () => {
-    setMyAvailabilities({});
+  const handleStartEdit = () => {
+    const remembered = poll ? loadRememberedResponse(poll.id) : null;
     setHoveredParticipant(null);
     setIsEditing(true);
-    setHasChanges(false);
-  };
-
-  const handleEditButton = () => {
-    if (isEditing) {
-      if (hasChanges) {
-        setShowSubmitModal(true);
-      } else {
-        // No changes, just exit edit mode
-        setIsEditing(false);
-        setMyAvailabilities({});
-        setParticipantName('');
-      }
+    setSubmitError(null);
+    setSavedFlash(false);
+    setConfirmDiscard(false);
+    if (remembered) {
+      setParticipantName(remembered.name);
+      setMyAvailabilities(remembered.availabilities);
+      setHasChanges(false);
+      setLoadedFromMemory(true);
     } else {
-      handleEnterEdit();
+      setParticipantName('');
+      setMyAvailabilities({});
+      setHasChanges(false);
+      setLoadedFromMemory(false);
     }
   };
 
-  const handleCancelEdit = () => {
-    if (hasChanges && !window.confirm('You have unsaved changes. Discard them?')) {
-      return;
-    }
+  const exitEdit = () => {
     setIsEditing(false);
     setHasChanges(false);
+    setLoadedFromMemory(false);
+    setConfirmDiscard(false);
     setShowSubmitModal(false);
     setMyAvailabilities({});
     setParticipantName('');
+    setSubmitError(null);
+  };
+
+  const handleCancelEdit = () => {
+    if (hasChanges) {
+      setConfirmDiscard(true);
+      return;
+    }
+    exitEdit();
+  };
+
+  const handleClearRemembered = () => {
+    if (!poll) return;
+    clearRememberedResponse(poll.id);
+    setParticipantName('');
+    setMyAvailabilities({});
+    setLoadedFromMemory(false);
+    setHasChanges(false);
+  };
+
+  const handleOpenSubmit = () => {
+    if (!hasChanges && !loadedFromMemory) return;
+    setSubmitError(null);
+    setConfirmDiscard(false);
+    setShowSubmitModal(true);
+  };
+
+  const handleActionAreaFocus = (e: FocusEvent<HTMLSpanElement>) => {
+    if (e.target !== e.currentTarget) return;
+    const el =
+      e.currentTarget.querySelector<HTMLButtonElement>(
+        '[data-return-target]:not([disabled])'
+      ) ??
+      e.currentTarget.querySelector<HTMLButtonElement>('button:not([disabled])');
+    el?.focus();
   };
 
   const handleConfirmSubmit = async (name: string) => {
@@ -102,15 +178,24 @@ export default function Poll() {
         name: name.trim(),
         availabilities: availableSlots,
       });
+      saveRememberedResponse(poll.id, {
+        name: name.trim(),
+        availabilities: availableSlots,
+      });
       setPoll(updated);
       setIsEditing(false);
       setHasChanges(false);
+      setLoadedFromMemory(false);
+      setConfirmDiscard(false);
       setShowSubmitModal(false);
       setMyAvailabilities({});
       setParticipantName('');
+      setSubmitError(null);
+      setSavedFlash(true);
     } catch (err) {
-      console.error('Failed to submit:', err);
-      alert('Failed to submit. Please try again.');
+      setSubmitError(
+        err instanceof ApiError ? err.message : 'Failed to submit. Please try again.'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -118,87 +203,235 @@ export default function Poll() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500 dark:text-gray-400">Loading poll...</div>
+      <div className="min-h-dvh">
+        <ThemeToggle />
+        <div role="status" className="max-w-4xl mx-auto space-y-4 py-8">
+          <span className="sr-only">Loading poll…</span>
+          <div className="h-8 w-2/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="h-4 w-1/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="h-10 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+          <div className="h-64 w-full rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+        </div>
       </div>
     );
   }
 
   if (error || !poll) {
+    const kind = error?.kind;
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          {error || 'Poll not found'}
-        </h1>
-        <Link
-          to="/"
-          className="text-indigo-600 hover:text-indigo-700 font-medium"
+      <div className="min-h-dvh">
+        <ThemeToggle />
+        <div
+          role="alert"
+          className="min-h-dvh flex flex-col items-center justify-center px-4"
         >
-          ← Back to home
-        </Link>
+          {kind === 'expired' ? (
+            <>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                This poll has expired
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                It&apos;s no longer accepting responses.
+              </p>
+              <Link
+                to="/create"
+                className="font-semibold px-4 py-2 rounded-lg transition-colors text-sm bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Create a new poll
+              </Link>
+            </>
+          ) : kind === 'network' || kind === 'server' || kind === 'bad-request' ? (
+            <>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Couldn&apos;t load poll
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                {error?.message ?? 'Network error — check your connection'}
+              </p>
+              <Button onClick={loadPoll}>Retry</Button>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                Poll not found or expired
+              </h1>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
+              >
+                <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                Back to home
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     );
   }
 
+  const responseCount = Object.keys(poll.responses).length;
+  const dayCount = poll.dates.length;
+  const expiresAt = new Date(poll.expiresAt).getTime();
+  const msUntilExpiry = expiresAt - Date.now();
+  const showExpiry = msUntilExpiry > 0;
+  const expirySoon = showExpiry && msUntilExpiry < 24 * 60 * 60 * 1000;
+  const expiryText = formatDayMonth(new Date(poll.expiresAt));
+
+  const statusBadge = hasChanges
+    ? {
+        text: 'Unsaved changes',
+        cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300',
+      }
+    : loadedFromMemory
+      ? {
+          text: 'Loaded your saved response',
+          cls: 'bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300',
+        }
+      : {
+          text: 'Editing',
+          cls: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
+        };
+
   return (
-    <div className="min-h-screen py-8 px-4">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
+    <div className="min-h-dvh py-8 px-4">
+      <ThemeToggle />
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
+        {createdNudge && (
+          <div
+            role="status"
+            className="bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-xl px-4 py-3 text-sm mb-6"
+          >
+            Poll created — copy the link and invite your group.
+          </div>
+        )}
+
         <div className="mb-8">
           <Link
             to="/"
-            className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 inline-block"
+            className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:text-indigo-400 dark:hover:text-indigo-300 mb-2"
           >
-            ← Walimeet
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            Walimeet
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{poll.name}</h1>
           {poll.description && (
             <p className="text-gray-600 dark:text-gray-300">{poll.description}</p>
           )}
           <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-gray-500 dark:text-gray-400">
-            <span>
-              📅 {poll.dates.length} day(s)
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" aria-hidden="true" />
+              {dayCount} day{dayCount === 1 ? '' : 's'}
             </span>
-            <span>
-              🕐 {poll.timeRange.start} – {poll.timeRange.end}
+            <span className="inline-flex items-center gap-1.5">
+              <Clock className="w-4 h-4" aria-hidden="true" />
+              {formatTimeLabel(poll.timeRange.start)} – {formatTimeLabel(poll.timeRange.end)}
             </span>
-            <span>
-              🌍 {poll.timezone.replace(/_/g, ' ')}
+            <span className="inline-flex items-center gap-1.5">
+              <Globe className="w-4 h-4" aria-hidden="true" />
+              {poll.timezone.replace(/_/g, ' ')}
             </span>
-          </div>
-        </div>
-
-        {/* Edit/Submit, Share & participant count */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {Object.keys(poll.responses).length} response(s)
-            {isEditing && hasChanges && (
-              <span className="ml-2 text-amber-600 dark:text-amber-400">
-                ● Unsaved changes
+            {showExpiry && (
+              <span
+                className={
+                  expirySoon ? 'text-amber-700 dark:text-amber-400 font-medium' : undefined
+                }
+              >
+                Expires {expiryText}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between mb-6 gap-y-3">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {responseCount} response{responseCount === 1 ? '' : 's'}
+            {savedFlash && (
+              <span role="status" className="ml-2 text-green-700 dark:text-green-400">
+                ✓ Saved
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
             <FilterButton value={minParticipants} onChange={setMinParticipants} />
-            <button
-              type="button"
-              onClick={handleEditButton}
-              className={`font-semibold px-4 py-2 rounded-lg transition-colors text-sm ${
-                isEditing
-                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              }`}
+            <span
+              ref={editButtonRef}
+              tabIndex={-1}
+              onFocus={handleActionAreaFocus}
+              className="inline-flex flex-wrap items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-indigo-500"
             >
-              {isEditing ? (hasChanges ? 'Submit' : 'Cancel') : 'Edit availability'}
-            </button>
-            <ShareButton pollId={poll.id} />
+              {!isEditing ? (
+                <Button
+                  variant="primary"
+                  onClick={handleStartEdit}
+                  data-return-target=""
+                >
+                  Edit availability
+                </Button>
+              ) : (
+                <>
+                  <span
+                    role="status"
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${statusBadge.cls}`}
+                  >
+                    {statusBadge.text}
+                  </span>
+                  {loadedFromMemory && (
+                    <Button variant="ghost" size="sm" onClick={handleClearRemembered}>
+                      Not you? Clear
+                    </Button>
+                  )}
+                  <Button variant="secondary" onClick={handleCancelEdit}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleOpenSubmit}
+                    disabled={!hasChanges && !loadedFromMemory}
+                    data-return-target=""
+                  >
+                    Submit
+                  </Button>
+                </>
+              )}
+            </span>
+            <span
+              className={
+                createdNudge
+                  ? 'inline-flex rounded-lg ring-2 ring-indigo-400 animate-pulse'
+                  : 'contents'
+              }
+            >
+              <ShareButton pollId={poll.id} />
+            </span>
           </div>
         </div>
 
-        {/* Time grid */}
+        {isEditing && confirmDiscard && (
+          <div
+            role="alertdialog"
+            aria-label="Discard changes?"
+            className="mb-6 flex flex-wrap items-center gap-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 text-sm"
+          >
+            <span className="font-medium text-amber-800 dark:text-amber-200">
+              Discard changes?
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="danger" size="sm" onClick={exitEdit}>
+                Discard
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmDiscard(false)}>
+                Keep editing
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {responseCount === 0 && (
+          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 text-center mb-6 text-sm text-gray-600 dark:text-gray-300">
+            No responses yet — share the link, then add your own availability.
+          </div>
+        )}
+
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 mb-6">
           <TimeGrid
             dates={poll.dates}
@@ -207,30 +440,42 @@ export default function Poll() {
             responses={poll.responses}
             onSetSlots={isEditing ? handleSetSlots : undefined}
             myAvailabilities={isEditing ? myAvailabilities : {}}
-            hoveredParticipant={isEditing ? null : hoveredParticipant}
-            onHoverParticipant={isEditing ? () => {} : setHoveredParticipant}
+            hoveredParticipant={hoveredParticipant}
+            onHoverParticipant={setHoveredParticipant}
             isEditing={isEditing}
             minParticipants={minParticipants}
           />
         </div>
 
-        {/* Edit mode hint */}
         {isEditing && (
-          <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-200">
-            💡 Click or drag on the grid to mark your available times, then press <strong>Submit</strong>.
+          <div
+            role="status"
+            className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-200"
+          >
+            <span className="flex items-center gap-1.5 flex-wrap">
+              <Lightbulb className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>
+                Click, tap, or drag on the grid to mark your available times, then press{' '}
+                <strong>Submit</strong>.
+              </span>
+            </span>
           </div>
         )}
       </div>
 
-      {/* Submit modal */}
       <SubmitModal
         isOpen={showSubmitModal}
         isSubmitting={submitting}
-        onClose={() => setShowSubmitModal(false)}
+        onClose={() => {
+          setShowSubmitModal(false);
+          setSubmitError(null);
+        }}
         onConfirm={handleConfirmSubmit}
         defaultName={participantName}
         onNameChange={setParticipantName}
-        onCancelEdit={handleCancelEdit}
+        onCancelEdit={exitEdit}
+        error={submitError}
+        returnFocusRef={editButtonRef}
       />
     </div>
   );

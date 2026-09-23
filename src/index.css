@@ -1,3 +1,51 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+html {
+  color-scheme: light;
+  background-color: #f9fafb;
+}
+
+html.dark {
+  color-scheme: dark;
+  background-color: #111827;
+}
+
+body {
+  background-color: inherit;
+}
+
+:where(button, a, [tabindex], input, select, textarea):focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --radius-card: 0.75rem;
+  --radius-control: 0.5rem;
+}

@@ -6,10 +6,24 @@ export async function handleRespond(
   env: Env,
   pollId: string
 ): Promise<Response> {
-  const input: RespondInput = await request.json();
+  let input: RespondInput;
+  try {
+    input = (await request.json()) as RespondInput;
+  } catch {
+    return new Response('Invalid JSON body', { status: 400 });
+  }
 
-  if (!input.name || !input.availabilities) {
+  const name = (input.name ?? '').trim();
+  if (!name || !input.availabilities) {
     return new Response('Invalid input', { status: 400 });
+  }
+
+  if (
+    typeof input.availabilities !== 'object' ||
+    input.availabilities === null ||
+    Array.isArray(input.availabilities)
+  ) {
+    return new Response('Invalid availabilities', { status: 400 });
   }
 
   const poll = await getPoll(env.WALIMEET_KV, pollId);
@@ -22,9 +36,9 @@ export async function handleRespond(
     return new Response('Poll expired', { status: 410 });
   }
 
-  const responseKey = input.name.toLowerCase().trim();
+  const responseKey = name.toLowerCase();
   const response: ParticipantResponse = {
-    name: input.name.trim(),
+    name,
     availabilities: input.availabilities,
     submittedAt: Date.now(),
   };

@@ -3,23 +3,25 @@ import ThemeToggle from '../components/ThemeToggle';
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
+    <div className="relative min-h-dvh flex flex-col px-4 py-12">
+      <ThemeToggle />
+      <div className="m-auto text-center">
+        <p aria-hidden="true" className="text-6xl font-bold text-gray-400 dark:text-gray-500 mb-4">
+          404
+        </p>
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
+          Page not found
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-8">
+          Check the link, or create a new poll.
+        </p>
+        <Link
+          to="/create"
+          className="min-h-11 inline-flex items-center bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+        >
+          Create a new poll
+        </Link>
       </div>
-      <h1 className="text-6xl font-bold text-gray-300 dark:text-gray-600 mb-4">404</h1>
-      <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-4">
-        Poll not found
-      </h2>
-      <p className="text-gray-500 dark:text-gray-400 mb-8">
-        This poll may have expired or the link is invalid.
-      </p>
-      <Link
-        to="/"
-        className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-lg transition-colors"
-      >
-        Create a new poll
-      </Link>
     </div>
   );
 }

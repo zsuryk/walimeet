@@ -1,23 +1,122 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import Calendar from '../components/Calendar';
 import TimeRangePicker from '../components/TimeRangePicker';
 import ThemeToggle from '../components/ThemeToggle';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Field, { inputClasses } from '../components/ui/Field';
 import { createPoll } from '../lib/api';
 import { getUserTimezone, getTimezoneOffset } from '../lib/timezone';
+import {
+  loadCreateDraft,
+  saveCreateDraft,
+  clearCreateDraft,
+} from '../lib/createDraft';
 import { format } from 'date-fns';
+
+function parseDraftDate(value: string): Date {
+  const [y, m, d] = value.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
+}
+
+function clampStep(step: number): number {
+  if (!Number.isFinite(step)) return 1;
+  return Math.min(3, Math.max(1, Math.round(step)));
+}
 
 export default function Create() {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [timeRange, setTimeRange] = useState({ start: '09:00', end: '17:00' });
-  const [timezone, setTimezone] = useState(getUserTimezone());
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [creatorName, setCreatorName] = useState('');
-  const [expiryDays, setExpiryDays] = useState(7);
+  const [step, setStep] = useState(() => {
+    const draft = loadCreateDraft();
+    return draft ? clampStep(draft.step) : 1;
+  });
+  const [selectedDates, setSelectedDates] = useState<Date[]>(() => {
+    const draft = loadCreateDraft();
+    return draft ? draft.dates.map(parseDraftDate) : [];
+  });
+  const [timeRange, setTimeRange] = useState(() => {
+    const draft = loadCreateDraft();
+    return draft?.timeRange ?? { start: '09:00', end: '17:00' };
+  });
+  const [timezone, setTimezone] = useState(() => {
+    const draft = loadCreateDraft();
+    return draft?.timezone ?? getUserTimezone();
+  });
+  const [name, setName] = useState(() => loadCreateDraft()?.name ?? '');
+  const [description, setDescription] = useState(
+    () => loadCreateDraft()?.description ?? ''
+  );
+  const [creatorName, setCreatorName] = useState(
+    () => loadCreateDraft()?.creatorName ?? ''
+  );
+  const [expiryDays, setExpiryDays] = useState(
+    () => loadCreateDraft()?.expiryDays ?? 7
+  );
+  const [draftRestored, setDraftRestored] = useState(
+    () => loadCreateDraft() !== null
+  );
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const timeRangeValid = timeRange.end > timeRange.start;
+  const firstStepFocus = useRef(true);
+  const firstSaveRef = useRef(true);
+
+  useEffect(() => {
+    if (firstStepFocus.current) {
+      firstStepFocus.current = false;
+      return;
+    }
+    document.getElementById('step-heading')?.focus();
+  }, [step]);
+
+  useEffect(() => {
+    if (firstSaveRef.current) {
+      firstSaveRef.current = false;
+      return;
+    }
+    saveCreateDraft({
+      dates: selectedDates.map((d) => format(d, 'yyyy-MM-dd')),
+      timeRange,
+      timezone,
+      name,
+      description,
+      creatorName,
+      expiryDays,
+      step,
+    });
+  }, [
+    selectedDates,
+    timeRange,
+    timezone,
+    name,
+    description,
+    creatorName,
+    expiryDays,
+    step,
+  ]);
+
+  const startOver = () => {
+    clearCreateDraft();
+    setDraftRestored(false);
+    setError(null);
+    setStep(1);
+    setSelectedDates([]);
+    setTimeRange({ start: '09:00', end: '17:00' });
+    setTimezone(getUserTimezone());
+    setName('');
+    setDescription('');
+    setCreatorName('');
+    setExpiryDays(7);
+    firstSaveRef.current = true;
+  };
+
+  const goToStep = (next: number) => {
+    setError(null);
+    setStep(next);
+  };
 
   const toggleDate = (date: Date) => {
     setSelectedDates((prev) => {
@@ -28,7 +127,8 @@ export default function Create() {
   };
 
   const handleSubmit = async () => {
-    if (!name || selectedDates.length === 0) return;
+    if (!name.trim() || selectedDates.length === 0) return;
+    setError(null);
     setLoading(true);
 
     try {
@@ -41,10 +141,12 @@ export default function Create() {
         creatorName: creatorName || 'Anonymous',
         expiryDays,
       });
-      navigate(`/poll/${poll.id}`);
+      setError(null);
+      clearCreateDraft();
+      navigate(`/poll/${poll.id}?created=1`);
     } catch (err) {
       console.error('Failed to create poll:', err);
-      alert('Failed to create poll. Please try again.');
+      setError('Failed to create poll. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -62,109 +164,157 @@ export default function Create() {
   const allTimezones = [userTz, ...timezones.filter((tz) => tz !== userTz)];
 
   return (
-    <div className="min-h-screen py-8 px-4">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
+    <div className="min-h-dvh py-8 px-4">
+      <ThemeToggle />
       <div className="max-w-2xl mx-auto">
-        <Link to="/" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2 inline-block">
-          ← Walimeet
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mb-2"
+        >
+          <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+          Walimeet
         </Link>
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8 text-center">
           Create a Poll
         </h1>
 
+        {draftRestored && (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-3 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 rounded-lg px-4 py-3 text-sm mb-6"
+          >
+            <span>We restored your unsaved poll draft.</span>
+            <Button variant="ghost" size="sm" onClick={startOver}>
+              Start over
+            </Button>
+          </div>
+        )}
+
         {/* Progress */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  step >= s
-                    ? 'bg-indigo-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                }`}
-              >
-                {s}
-              </div>
-              {s < 3 && (
+        <nav aria-label="Create poll progress">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center gap-2">
                 <div
-                  className={`w-12 h-1 ${
-                    step > s ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'
+                  aria-current={step === s ? 'step' : undefined}
+                  aria-label={`Step ${s}`}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                    step >= s
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
                   }`}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+                >
+                  {s}
+                </div>
+                {s < 3 && (
+                  <div
+                    className={`w-12 h-1 ${
+                      step > s ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+                    }`}
+                  />
+                )}
+              </div>
+            ))}
+            <span className="sr-only">Step {step} of 3</span>
+          </div>
+          <div className="flex justify-center gap-8 mb-8">
+            <span className={step === 1 ? 'text-xs text-indigo-600 dark:text-indigo-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
+              Dates
+            </span>
+            <span className={step === 2 ? 'text-xs text-indigo-600 dark:text-indigo-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
+              Times
+            </span>
+            <span className={step === 3 ? 'text-xs text-indigo-600 dark:text-indigo-400 font-medium' : 'text-xs text-gray-500 dark:text-gray-400'}>
+              Details
+            </span>
+          </div>
+        </nav>
 
         {/* Step 1: Pick dates */}
         {step === 1 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center">
+            <h2
+              id="step-heading"
+              tabIndex={-1}
+              className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center"
+            >
               What days would you like to meet?
             </h2>
             <Calendar selectedDates={selectedDates} onToggleDate={toggleDate} />
             {selectedDates.length > 0 && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                {selectedDates.length} day(s) selected
+              <p role="status" className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                {selectedDates.length} day{selectedDates.length === 1 ? '' : 's'} selected
               </p>
             )}
-            <button
-              type="button"
-              onClick={() => setStep(2)}
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full"
+              onClick={() => goToStep(2)}
               disabled={selectedDates.length === 0}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
             >
               Next
-            </button>
+            </Button>
           </div>
         )}
 
         {/* Step 2: Time range & timezone */}
         {step === 2 && (
           <div className="space-y-6">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center">
+            <h2
+              id="step-heading"
+              tabIndex={-1}
+              className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center"
+            >
               What times would you like to meet between?
             </h2>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6">
+            <Card className="p-6">
               <TimeRangePicker
                 start={timeRange.start}
                 end={timeRange.end}
                 onChange={setTimeRange}
               />
-            </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Timezone
-              </label>
-              <select
-                value={timezone}
-                onChange={(e) => setTimezone(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            </Card>
+            <Card className="p-6">
+              <Field
+                label="Timezone"
+                htmlFor="poll-timezone"
+                hint="Everyone will see times in this timezone."
               >
-                {allTimezones.map((tz) => (
-                  <option key={tz} value={tz}>
-                    {tz.replace(/_/g, ' ')} {getTimezoneOffset(tz)}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <select
+                  id="poll-timezone"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  aria-describedby="poll-timezone-hint"
+                  className={inputClasses}
+                >
+                  {allTimezones.map((tz, i) => (
+                    <option key={tz} value={tz}>
+                      {`${tz.replace(/_/g, ' ')} ${getTimezoneOffset(tz)}${i === 0 && tz === userTz ? ' (your timezone)' : ''}`}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </Card>
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold py-3 rounded-lg transition-colors"
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex-1"
+                onClick={() => goToStep(1)}
               >
                 Back
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(3)}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-lg transition-colors"
+              </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                className="flex-1"
+                onClick={() => goToStep(3)}
+                disabled={!timeRangeValid}
+                aria-describedby="time-range-error"
               >
                 Next
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -172,54 +322,68 @@ export default function Create() {
         {/* Step 3: Details & submit */}
         {step === 3 && (
           <div className="space-y-4">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center">
+            <h2
+              id="step-heading"
+              tabIndex={-1}
+              className="text-xl font-semibold text-gray-800 dark:text-gray-100 text-center"
+            >
               Name your meeting
             </h2>
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Meeting name *
-                </label>
+            <Card className="p-6 space-y-4">
+              <Field
+                label="Meeting name *"
+                htmlFor="poll-name"
+                required
+                hint={name ? undefined : 'Required — your meeting needs a name.'}
+              >
                 <input
+                  id="poll-name"
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. Team standup"
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                  aria-required="true"
+                  aria-describedby={name ? undefined : 'poll-name-hint'}
+                  className={inputClasses}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description (optional)
-                </label>
+              </Field>
+              <Field label="Description (optional)" htmlFor="poll-description">
                 <textarea
+                  id="poll-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What's the meeting about?"
                   rows={3}
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className={inputClasses}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Your name
-                </label>
+              </Field>
+              <Field
+                label="Your name"
+                htmlFor="poll-creator-name"
+                hint="Leave blank to post as Anonymous."
+              >
                 <input
+                  id="poll-creator-name"
                   type="text"
                   value={creatorName}
                   onChange={(e) => setCreatorName(e.target.value)}
                   placeholder="Anonymous"
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  aria-describedby="poll-creator-name-hint"
+                  className={inputClasses}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Expires in
-                </label>
+              </Field>
+              <Field
+                label="Expires in"
+                htmlFor="poll-expiry"
+                hint="After this many days the poll link stops working."
+              >
                 <select
+                  id="poll-expiry"
                   value={expiryDays}
                   onChange={(e) => setExpiryDays(Number(e.target.value))}
-                  className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  aria-describedby="poll-expiry-hint"
+                  className={inputClasses}
                 >
                   {[1, 2, 3, 5, 7, 10, 14].map((d) => (
                     <option key={d} value={d}>
@@ -227,33 +391,45 @@ export default function Create() {
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
+              </Field>
+            </Card>
 
             {/* Summary */}
-            <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-sm">
+            <Card className="p-6 text-sm">
               <p className="font-medium text-indigo-800 dark:text-indigo-300 mb-1">Poll summary</p>
               <p className="text-indigo-700 dark:text-indigo-400">
-                {selectedDates.length} day(s) · {timeRange.start} to {timeRange.end} · {timezone.replace(/_/g, ' ')}
+                {selectedDates.length} day{selectedDates.length === 1 ? '' : 's'} · {timeRange.start} to {timeRange.end} · {timezone.replace(/_/g, ' ')}
               </p>
-            </div>
+            </Card>
+
+            {error && (
+              <div
+                role="alert"
+                className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg px-4 py-3 text-sm"
+              >
+                {error}
+              </div>
+            )}
 
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold py-3 rounded-lg transition-colors"
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex-1"
+                onClick={() => goToStep(2)}
               >
                 Back
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                className="flex-1"
                 onClick={handleSubmit}
-                disabled={!name || loading}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold py-3 rounded-lg transition-colors"
+                disabled={!name.trim() || loading}
+                aria-busy={loading}
               >
                 {loading ? 'Creating...' : 'Create Poll'}
-              </button>
+              </Button>
             </div>
           </div>
         )}

@@ -17,7 +17,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('theme', theme);
+    document
+      .getElementById('theme-color')
+      ?.setAttribute('content', theme === 'dark' ? '#111827' : '#f9fafb');
   }, [theme]);
 
   useEffect(() => {
@@ -32,7 +34,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+    const next = theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
+    setTheme(next);
   };
 
   return (

@@ -1,13 +1,40 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
+import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
+import Field, { inputClasses } from '../components/ui/Field';
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [linkInput, setLinkInput] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  const openPoll = () => {
+    const input = linkInput.trim();
+    let id: string | null = null;
+
+    try {
+      const url = new URL(input);
+      const match = url.pathname.match(/\/poll\/([^/]+)/);
+      if (match) id = match[1];
+    } catch {
+      if (/^[A-Za-z0-9_-]{5,}$/.test(input)) id = input;
+    }
+
+    if (!id) {
+      setLinkError("That doesn't look like a poll link.");
+      return;
+    }
+
+    setLinkError(null);
+    navigate(`/poll/${id}`);
+  };
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
-      <div className="max-w-2xl text-center">
+    <div className="relative min-h-dvh flex flex-col px-4 py-12">
+      <ThemeToggle />
+      <div className="m-auto w-full max-w-2xl text-center">
         <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
           Walimeet
         </h1>
@@ -15,7 +42,36 @@ export default function Home() {
           The easiest way to schedule group meetings
         </p>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 mb-8">
+        <Card className="p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+            Have a link?
+          </h2>
+          <Field label="Paste a poll link" htmlFor="poll-link">
+            <input
+              id="poll-link"
+              className={inputClasses}
+              placeholder="https://…/poll/abc123 or just the ID"
+              value={linkInput}
+              onChange={(e) => {
+                setLinkInput(e.target.value);
+                setLinkError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') openPoll();
+              }}
+            />
+          </Field>
+          <Button onClick={openPoll} className="mt-3 w-full">
+            Open poll
+          </Button>
+          {linkError && (
+            <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+              {linkError}
+            </p>
+          )}
+        </Card>
+
+        <Card className="p-8 mb-8">
           <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-6">
             How it works
           </h2>
@@ -25,7 +81,7 @@ export default function Home() {
                 <span className="text-2xl">1</span>
               </div>
               <h3 className="font-medium text-gray-800 dark:text-gray-100 mb-1">Pick dates</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Select the dates you'd like to meet
               </p>
             </div>
@@ -34,7 +90,7 @@ export default function Home() {
                 <span className="text-2xl">2</span>
               </div>
               <h3 className="font-medium text-gray-800 dark:text-gray-100 mb-1">Share the link</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Send the poll link to your group
               </p>
             </div>
@@ -43,19 +99,16 @@ export default function Home() {
                 <span className="text-2xl">3</span>
               </div>
               <h3 className="font-medium text-gray-800 dark:text-gray-100 mb-1">Find the best time</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 See everyone's availability at a glance
               </p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <Link
-          to="/create"
-          className="inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3 rounded-lg transition-colors"
-        >
+        <Button size="lg" onClick={() => navigate('/create')}>
           Create a Poll
-        </Link>
+        </Button>
       </div>
     </div>
   );

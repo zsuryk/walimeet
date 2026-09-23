@@ -8,42 +8,75 @@ interface FilterButtonProps {
 export default function FilterButton({ value, onChange }: FilterButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [inputError, setInputError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        if (popoverRef.current?.contains(document.activeElement)) {
+          buttonRef.current?.focus();
+        }
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
   }, []);
+
+  useEffect(() => {
+    if (!isOpen) setInputError(null);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [isOpen]);
 
   useEffect(() => {
     if (value !== null) setInputValue(String(value));
   }, [value]);
 
+  const closeAndFocus = () => {
+    setIsOpen(false);
+    buttonRef.current?.focus();
+  };
+
   const handleApply = () => {
-    const num = parseInt(inputValue, 10);
-    if (!isNaN(num) && num > 0) {
-      onChange(num);
-      setIsOpen(false);
+    if (!/^\d+$/.test(inputValue) || Number(inputValue) < 1) {
+      setInputError('Enter a whole number ≥ 1');
+      return;
     }
+    setInputError(null);
+    onChange(Number(inputValue));
+    closeAndFocus();
   };
 
   const handleClear = () => {
+    setInputError(null);
     onChange(null);
     setInputValue('');
-    setIsOpen(false);
+    closeAndFocus();
   };
 
   return (
     <div className="relative" ref={containerRef}>
       <button
         type="button"
+        ref={buttonRef}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 font-semibold px-4 py-2 rounded-lg transition-colors text-sm border ${
+        className={`flex items-center gap-2 font-semibold px-4 py-2 rounded-lg transition-colors text-sm min-h-11 border ${
           value !== null
             ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
             : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
@@ -56,20 +89,29 @@ export default function FilterButton({ value, onChange }: FilterButtonProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-40">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Show slots with ≥ participants
+        <div
+          ref={popoverRef}
+          role="dialog"
+          aria-label="Filter participants"
+          className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-40"
+        >
+          <label
+            htmlFor="filter-min-participants"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+          >
+            Show slots with at least this many participants
           </label>
           <div className="flex gap-2">
             <input
               type="number"
+              id="filter-min-participants"
               min={1}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleApply()}
               placeholder="e.g. 3"
               autoFocus
-              className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-base focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
             <button
               type="button"
@@ -79,6 +121,9 @@ export default function FilterButton({ value, onChange }: FilterButtonProps) {
               Apply
             </button>
           </div>
+          {inputError && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-2">{inputError}</p>
+          )}
           {value !== null && (
             <button
               type="button"

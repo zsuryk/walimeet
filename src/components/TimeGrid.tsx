@@ -1,5 +1,7 @@
-import { useState, useCallback, Fragment } from 'react';
+import { useState, useCallback, useRef } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { generateTimeSlots } from '../lib/timezone';
+import { formatTimeLabel } from '../lib/format';
 
 interface TimeGridProps {
   dates: string[];
@@ -14,12 +16,12 @@ interface TimeGridProps {
   minParticipants?: number | null;
 }
 
-// Blue-to-violet gradient based on intensity (0..1)
+type SlotColor = { cls: string } | { color: string };
+
 function intensityColor(intensity: number, alpha: number): string {
-  // hue: 210 (blue) → 265 (violet)
-  const hue = 210 + intensity * 55;
-  const sat = 70 + intensity * 10;
-  const light = 75 - intensity * 25;
+  const hue = 231;
+  const sat = 60 + intensity * 25;
+  const light = 88 - intensity * 50;
   return `hsla(${hue}, ${sat}%, ${light}%, ${alpha})`;
 }
 
@@ -38,8 +40,13 @@ export default function TimeGrid({
   const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragValue, setDragValue] = useState<boolean | null>(null);
+  const [focusPos, setFocusPos] = useState({ row: 0, col: 0 });
+  const [focusedSlot, setFocusedSlot] = useState<string | null>(null);
+  const cellRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const slots = generateTimeSlots(timeRange.start, timeRange.end, slotMinutes);
+
+  const activeSlot = focusedSlot ?? hoveredSlot;
 
   const getSlotKey = (date: string, time: string) => `${date}-${time}`;
 
@@ -61,7 +68,7 @@ export default function TimeGrid({
 
   const participantCount = Object.keys(responses).length;
 
-  const handleMouseDown = useCallback(
+  const handlePointerDown = useCallback(
     (slotKey: string) => {
       if (!onSetSlots) return;
       const currentValue = myAvailabilities[slotKey] ?? false;
@@ -73,24 +80,68 @@ export default function TimeGrid({
     [myAvailabilities, onSetSlots]
   );
 
-  const handleMouseEnter = useCallback(
+  const toggleSlot = useCallback(
     (slotKey: string) => {
-      setHoveredSlot(slotKey);
-      if (!onSetSlots || !isDragging || dragValue === null) return;
-      const currentValue = myAvailabilities[slotKey] ?? false;
-      if (currentValue !== dragValue) {
-        onSetSlots([slotKey], dragValue);
-      }
+      if (!onSetSlots) return;
+      onSetSlots([slotKey], !(myAvailabilities[slotKey] ?? false));
+    },
+    [myAvailabilities, onSetSlots]
+  );
+
+  const handlePointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const key = el?.getAttribute('data-slot-key');
+      if (key) setHoveredSlot((prev) => (prev === key ? prev : key));
+      if (!onSetSlots || !isDragging || dragValue === null || !key) return;
+      const currentValue = myAvailabilities[key] ?? false;
+      if (currentValue !== dragValue) onSetSlots([key], dragValue);
     },
     [isDragging, dragValue, myAvailabilities, onSetSlots]
   );
 
-  const handleMouseUp = useCallback(() => {
+  const handlePointerUp = useCallback(() => {
     setIsDragging(false);
     setDragValue(null);
   }, []);
 
-  const formatTimeLabel = (time: string) => time;
+  const handlePointerLeave = useCallback(() => {
+    setIsDragging(false);
+    setDragValue(null);
+    setHoveredSlot(null);
+  }, []);
+
+  const moveFocus = (row: number, col: number) => {
+    setFocusPos({ row, col });
+    const key = getSlotKey(dates[col], slots[row]);
+    cellRefs.current.get(key)?.focus();
+  };
+
+  const handleCellKeyDown = (
+    e: ReactKeyboardEvent<HTMLButtonElement>,
+    slotKey: string,
+    row: number,
+    col: number
+  ) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      moveFocus(Math.max(0, row - 1), col);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      moveFocus(Math.min(slots.length - 1, row + 1), col);
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      moveFocus(row, Math.max(0, col - 1));
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      moveFocus(row, Math.min(dates.length - 1, col + 1));
+    } else if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      if (onSetSlots) {
+        e.preventDefault();
+        toggleSlot(slotKey);
+      }
+    }
+  };
 
   const formatDateLabel = (date: string) => {
     const d = new Date(date + 'T00:00:00');
@@ -102,7 +153,7 @@ export default function TimeGrid({
     };
   };
 
-  const getSlotColor = (slotKey: string) => {
+  const getSlotColor = (slotKey: string): SlotColor => {
     const isMyAvailable = myAvailabilities[slotKey] ?? false;
     const count = getAvailableCount(slotKey);
     const passesFilter = minParticipants == null || count >= minParticipants;
@@ -110,22 +161,22 @@ export default function TimeGrid({
     if (hoveredParticipant) {
       const participant = responses[hoveredParticipant];
       const isAvailable = participant?.availabilities[slotKey] ?? false;
-      if (!passesFilter) return 'rgba(229, 231, 235, 0.3)';
+      if (!passesFilter) return { cls: 'bg-gray-100 dark:bg-gray-700' };
       return isAvailable
-        ? 'hsla(240, 80%, 55%, 0.6)'
-        : 'rgba(229, 231, 235, 0.5)';
+        ? { color: 'hsla(231, 84%, 56%, 0.6)' }
+        : { cls: 'bg-gray-100 dark:bg-gray-700' };
     }
 
-    if (!passesFilter) return 'rgba(229, 231, 235, 0.3)';
+    if (!passesFilter) return { cls: 'bg-gray-100 dark:bg-gray-700' };
 
     if (participantCount === 0) {
-      return isMyAvailable ? 'hsla(240, 80%, 55%, 0.35)' : 'transparent';
+      return isMyAvailable ? { color: 'hsla(231, 84%, 56%, 0.35)' } : { cls: '' };
     }
 
-    if (count === 0) return 'transparent';
+    if (count === 0) return { cls: '' };
 
     const intensity = count / participantCount;
-    return intensityColor(intensity, 0.25 + intensity * 0.55);
+    return { color: intensityColor(intensity, 0.25 + intensity * 0.55) };
   };
 
   const isSlotFilteredOut = (slotKey: string) => {
@@ -134,98 +185,162 @@ export default function TimeGrid({
   };
 
   return (
-    <div
-      className="overflow-x-auto"
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    >
-      <div className="min-w-[600px]">
-        {/* Date headers */}
-        <div className="flex border-b border-gray-300 dark:border-gray-600">
-          <div className="w-16 shrink-0" />
-          {dates.map((date) => {
-            const { day, date: dateStr } = formatDateLabel(date);
-            return (
-              <div key={date} className="flex-1 text-center px-1 py-2 border-l border-gray-300 dark:border-gray-600">
-                <div className="text-xs text-gray-500 dark:text-gray-400">{day}</div>
-                <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{dateStr}</div>
-              </div>
-            );
-          })}
-        </div>
+    <div>
+      <div
+        className="overflow-x-auto"
+        role="grid"
+        aria-label="Availability by date and time"
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerLeave}
+        onPointerLeave={handlePointerLeave}
+      >
+        <div className="min-w-[600px]">
+          <div
+            role="row"
+            className="grid border-b border-gray-300 dark:border-gray-600"
+            style={{ gridTemplateColumns: `64px repeat(${dates.length}, 1fr)` }}
+          >
+            <div className="sticky left-0 z-10 bg-white dark:bg-gray-800" />
+            {dates.map((date) => {
+              const { day, date: dateStr } = formatDateLabel(date);
+              return (
+                <div
+                  key={date}
+                  role="columnheader"
+                  className="flex-1 text-center px-1 py-2 border-l border-gray-300 dark:border-gray-600"
+                >
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{day}</div>
+                  <div className="text-sm font-medium text-gray-800 dark:text-gray-100">{dateStr}</div>
+                </div>
+              );
+            })}
+          </div>
 
-        {/* Time grid */}
-        <div className="grid" style={{ gridTemplateColumns: `64px repeat(${dates.length}, 1fr)` }}>
-          {slots.map((time) => (
-            <Fragment key={time}>
-              <div className="text-xs text-gray-500 dark:text-gray-400 pr-2 text-right py-0 border-b border-gray-200 dark:border-gray-700 flex items-start justify-end pt-0 h-8">
+          {slots.map((time, r) => (
+            <div
+              key={time}
+              role="row"
+              className="grid"
+              style={{ gridTemplateColumns: `64px repeat(${dates.length}, 1fr)` }}
+            >
+              <div
+                role="rowheader"
+                className="sticky left-0 z-10 bg-white dark:bg-gray-800 text-xs text-gray-500 dark:text-gray-400 pr-2 text-right border-b border-gray-200 dark:border-gray-700 flex items-center justify-end h-11"
+              >
                 {formatTimeLabel(time)}
               </div>
-              {dates.map((date) => {
+              {dates.map((date, c) => {
                 const slotKey = getSlotKey(date, time);
                 const count = getAvailableCount(slotKey);
-                const bgColor = getSlotColor(slotKey);
+                const slotColor = getSlotColor(slotKey);
+                const backgroundColor = 'color' in slotColor ? slotColor.color : undefined;
+                const bgCls = 'cls' in slotColor ? slotColor.cls : '';
                 const isHovered = hoveredSlot === slotKey;
                 const showCount = participantCount > 0 && count > 0;
                 const filteredOut = isSlotFilteredOut(slotKey);
+                const { day, date: dateStr } = formatDateLabel(date);
+                const availabilityText =
+                  participantCount === 0
+                    ? 'no responses yet'
+                    : `${count} of ${participantCount} available`;
 
                 return (
-                  <div
+                  <button
                     key={slotKey}
-                    className={`h-8 border-l border-b border-gray-200 dark:border-gray-700 ${isHovered ? 'ring-1 ring-inset ring-indigo-400' : ''} ${isEditing ? 'cursor-pointer' : ''} ${filteredOut ? 'opacity-30' : ''}`}
-                    style={{ backgroundColor: bgColor }}
-                    onMouseEnter={() => handleMouseEnter(slotKey)}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleMouseDown(slotKey);
+                    type="button"
+                    role="gridcell"
+                    ref={(el) => {
+                      if (el) cellRefs.current.set(slotKey, el);
+                      else cellRefs.current.delete(slotKey);
                     }}
+                    data-slot-key={slotKey}
+                    tabIndex={focusPos.row === r && focusPos.col === c ? 0 : -1}
+                    aria-label={`${day} ${dateStr}, ${formatTimeLabel(time)}, ${availabilityText}`}
+                    aria-selected={onSetSlots ? (myAvailabilities[slotKey] ?? false) : undefined}
+                    className={`h-11 flex items-center justify-center border-l border-b border-gray-200 dark:border-gray-700 ${bgCls} ${isHovered ? 'ring-1 ring-inset ring-indigo-400' : ''} ${isEditing ? 'cursor-pointer' : ''} ${filteredOut ? 'opacity-30' : ''} focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500`}
+                    style={{
+                      touchAction: onSetSlots ? 'none' : undefined,
+                      backgroundColor,
+                    }}
+                    onPointerDown={(e) => {
+                      if (!onSetSlots) return;
+                      e.preventDefault();
+                      handlePointerDown(slotKey);
+                    }}
+                    onPointerEnter={() => setFocusedSlot(null)}
+                    onKeyDown={(e) => handleCellKeyDown(e, slotKey, r, c)}
+                    onFocus={() => {
+                      setFocusPos({ row: r, col: c });
+                      setFocusedSlot(slotKey);
+                    }}
+                    onBlur={() => setFocusedSlot(null)}
+                    onClick={(e) => e.preventDefault()}
                   >
                     {showCount && (
-                      <span className="flex items-center justify-center h-full text-[10px] font-medium text-indigo-900 dark:text-indigo-100">
+                      <span className="pointer-events-none mx-auto my-auto rounded bg-white/90 dark:bg-gray-900/80 px-1.5 text-[10px] font-medium text-indigo-800 dark:text-indigo-100">
                         {count}
                       </span>
                     )}
-                  </div>
+                  </button>
                 );
               })}
-            </Fragment>
+            </div>
           ))}
         </div>
-
-        {/* Participant list */}
-        {participantCount > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Participants ({participantCount})
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {Object.values(responses).map((r) => (
-                <span
-                  key={r.name}
-                  className={`px-2 py-1 text-xs rounded-full cursor-pointer transition-colors ${
-                    hoveredParticipant === r.name
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                  onMouseEnter={() => onHoverParticipant(r.name)}
-                  onMouseLeave={() => onHoverParticipant(null)}
-                >
-                  {r.name}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tooltip */}
-        {hoveredSlot && !isEditing && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg shadow-lg z-50">
-            {getAvailableNames(hoveredSlot).length > 0
-              ? getAvailableNames(hoveredSlot).join(', ')
-              : 'No one available'}
-          </div>
-        )}
       </div>
+
+      <div className="mt-3 flex items-center gap-2 text-[10px] text-gray-500 dark:text-gray-400">
+        <span>Less available</span>
+        {[0, 0.33, 0.66, 1].map((i) => (
+          <span
+            key={i}
+            aria-hidden="true"
+            className="h-3 w-6 rounded-sm border border-gray-200 dark:border-gray-700"
+            style={{ backgroundColor: intensityColor(i, 0.25 + i * 0.55) }}
+          />
+        ))}
+        <span>More available</span>
+      </div>
+
+      {participantCount > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Participants ({participantCount})
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(responses).map(([entryKey, r]) => (
+              <button
+                key={entryKey}
+                type="button"
+                className={`min-h-11 px-3 py-2 text-xs rounded-full cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-indigo-500 ${
+                  hoveredParticipant === entryKey
+                    ? 'bg-indigo-500 text-white'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+                onFocus={() => onHoverParticipant(entryKey)}
+                onBlur={() => onHoverParticipant(null)}
+                onMouseEnter={() => onHoverParticipant(entryKey)}
+                onMouseLeave={() => onHoverParticipant(null)}
+                aria-pressed={hoveredParticipant === entryKey}
+              >
+                {r.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSlot && !isEditing && (
+        <div
+          role="tooltip"
+          className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-3 py-2 rounded-lg shadow-lg z-50 max-w-[min(24rem,calc(100vw-2rem))] whitespace-normal break-words"
+        >
+          {getAvailableNames(activeSlot).length > 0
+            ? getAvailableNames(activeSlot).join(', ')
+            : 'No one available'}
+        </div>
+      )}
     </div>
   );
 }
