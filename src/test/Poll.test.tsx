@@ -22,6 +22,8 @@ const mockRespondToPoll = vi.mocked(respondToPoll);
 
 const POLL_ID = 'poll-1';
 const SLOT_KEY = '2026-10-05-09:00';
+// jsdom serializes hsla(231, 84%, 56%, 0.35) (the "my selection" fill) to rgba
+const MY_SELECTION_BG = 'rgba(49, 77, 237, 0.35)';
 
 function makeResponse(
   name: string,
@@ -87,6 +89,41 @@ async function typeAndConfirm(user: UserEvent, name: string): Promise<void> {
 beforeEach(() => {
   mockGetPoll.mockResolvedValue(makePoll());
   mockRespondToPoll.mockResolvedValue(makePoll());
+});
+
+describe('editing when others have already responded', () => {
+  it('shows my selection on the grid, not only the overall heat map', async () => {
+    mockGetPoll.mockResolvedValue(
+      makePoll({ responses: { alex: makeResponse('Alex') } })
+    );
+    const user = userEvent.setup();
+    renderPoll();
+    await startEditAndMarkSlot(user);
+
+    // cell[0] = SLOT_KEY, which Alex also marked
+    const cell = screen.getAllByRole('gridcell')[0];
+    expect(cell).toHaveAttribute('aria-selected', 'true');
+    expect(cell).toHaveAttribute('data-my-selected', 'true');
+    expect(cell.style.backgroundColor).toBe(MY_SELECTION_BG);
+  });
+
+  it('shows my selection on a slot nobody else marked', async () => {
+    mockGetPoll.mockResolvedValue(
+      makePoll({ responses: { alex: makeResponse('Alex') } })
+    );
+    const user = userEvent.setup();
+    renderPoll();
+    await screen.findByRole('heading', { name: 'Team standup' });
+    await user.click(screen.getByRole('button', { name: 'Edit availability' }));
+
+    // cell[1] = 09:15, where Alex is not available (count = 0)
+    const cells = screen.getAllByRole('gridcell');
+    cells[1].focus();
+    await user.keyboard(' ');
+
+    expect(cells[1]).toHaveAttribute('data-my-selected', 'true');
+    expect(cells[1].style.backgroundColor).toBe(MY_SELECTION_BG);
+  });
 });
 
 describe('creator attribution', () => {

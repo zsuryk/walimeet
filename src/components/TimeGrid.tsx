@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { Check } from 'lucide-react';
 import { generateTimeSlots } from '../lib/timezone';
 import { formatTimeLabel } from '../lib/format';
 import Button from './ui/Button';
@@ -170,11 +171,9 @@ export default function TimeGrid({
 
     if (!passesFilter) return { cls: 'bg-gray-100 dark:bg-gray-700' };
 
-    if (participantCount === 0) {
-      return isMyAvailable ? { color: 'hsla(231, 84%, 56%, 0.35)' } : { cls: '' };
-    }
+    if (isMyAvailable) return { color: 'hsla(231, 84%, 56%, 0.35)' };
 
-    if (count === 0) return { cls: '' };
+    if (participantCount === 0 || count === 0) return { cls: '' };
 
     const intensity = count / participantCount;
     return { color: intensityColor(intensity, 0.25 + intensity * 0.55) };
@@ -238,6 +237,7 @@ export default function TimeGrid({
                 const backgroundColor = 'color' in slotColor ? slotColor.color : undefined;
                 const bgCls = 'cls' in slotColor ? slotColor.cls : '';
                 const isHovered = hoveredSlot === slotKey;
+                const isMySelected = myAvailabilities[slotKey] ?? false;
                 const showCount = participantCount > 0 && count > 0;
                 const filteredOut = isSlotFilteredOut(slotKey);
                 const { day, date: dateStr } = formatDateLabel(date);
@@ -256,6 +256,7 @@ export default function TimeGrid({
                       else cellRefs.current.delete(slotKey);
                     }}
                     data-slot-key={slotKey}
+                    data-my-selected={isMySelected ? 'true' : 'false'}
                     tabIndex={focusPos.row === r && focusPos.col === c ? 0 : -1}
                     aria-label={`${day} ${dateStr}, ${formatTimeLabel(time)}, ${availabilityText}`}
                     aria-selected={onSetSlots ? (myAvailabilities[slotKey] ?? false) : undefined}
@@ -278,9 +279,12 @@ export default function TimeGrid({
                     onBlur={() => setFocusedSlot(null)}
                     onClick={(e) => e.preventDefault()}
                   >
-                    {showCount && (
-                      <span className="pointer-events-none mx-auto my-auto rounded bg-white/90 dark:bg-gray-900/80 px-1.5 text-[10px] font-medium text-brand-800 dark:text-brand-100">
-                        {count}
+                    {(showCount || isMySelected) && (
+                      <span className="pointer-events-none mx-auto my-auto flex items-center gap-0.5 rounded bg-white/90 dark:bg-gray-900/80 px-1.5 text-[10px] font-medium text-brand-800 dark:text-brand-100">
+                        {isMySelected && (
+                          <Check className="w-3 h-3" aria-hidden="true" />
+                        )}
+                        {showCount && <span>{count}</span>}
                       </span>
                     )}
                   </button>
