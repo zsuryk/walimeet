@@ -112,21 +112,52 @@ export default function SubmitModal({
         </h2>
 
         {colliding ? (
-          <>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              A response already exists for this name.
-            </p>
+          <p
+            role="alert"
+            className="text-sm text-gray-500 dark:text-gray-400 mb-4"
+          >
+            A response already exists for this name.
+          </p>
+        ) : (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Enter your name to confirm and submit your availability.
+          </p>
+        )}
 
-            {error && (
-              <div
-                role="alert"
-                className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg px-3 py-2 text-sm mb-3"
-              >
-                {error}
-              </div>
-            )}
+        {!colliding && (
+          <Field label="Your name" htmlFor="participant-name">
+            <input
+              ref={nameInputRef}
+              type="text"
+              id="participant-name"
+              required
+              aria-required="true"
+              value={defaultName}
+              onChange={(e) => onNameChange(e.target.value)}
+              placeholder="Your name"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && defaultName.trim()) {
+                  onConfirm(defaultName);
+                }
+              }}
+              className={`${inputClasses} mb-4`}
+            />
+          </Field>
+        )}
 
-            <div className="flex gap-3">
+        {error && (
+          <div
+            role="alert"
+            className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg px-3 py-2 text-sm mb-3"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          {colliding ? (
+            <>
               <Button
                 ref={changeNameBtnRef}
                 variant="secondary"
@@ -144,43 +175,9 @@ export default function SubmitModal({
               >
                 {isSubmitting ? 'Submitting...' : 'Overwrite'}
               </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Enter your name to confirm and submit your availability.
-            </p>
-
-            <Field label="Your name" htmlFor="participant-name">
-              <input
-                ref={nameInputRef}
-                type="text"
-                id="participant-name"
-                required
-                aria-required="true"
-                value={defaultName}
-                onChange={(e) => onNameChange(e.target.value)}
-                placeholder="Your name"
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && defaultName.trim()) {
-                    onConfirm(defaultName);
-                  }
-                }}
-                className={`${inputClasses} mb-4`}
-              />
-            </Field>
-            {error && (
-              <div
-                role="alert"
-                className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg px-3 py-2 text-sm mb-3"
-              >
-                {error}
-              </div>
-            )}
-
-            <div className="flex gap-3">
+            </>
+          ) : (
+            <>
               <Button
                 variant="secondary"
                 className="flex-1"
@@ -196,9 +193,9 @@ export default function SubmitModal({
               >
                 {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}
               </Button>
-            </div>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

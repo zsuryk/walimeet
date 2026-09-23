@@ -16,8 +16,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import FilterButton from '../components/FilterButton';
 import SubmitModal from '../components/SubmitModal';
 import Button, {
-  buttonBaseClasses,
-  buttonVariantClasses,
+  primaryLinkClasses,
 } from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { getPoll, respondToPoll, ApiError } from '../lib/api';
@@ -27,7 +26,6 @@ import {
   clearRememberedResponse,
 } from '../lib/remember';
 import { formatTimeLabel, formatDayMonth } from '../lib/format';
-import { twMerge } from '../lib/cn';
 import type { Poll as PollType } from '../lib/types';
 
 export default function Poll() {
@@ -280,11 +278,7 @@ export default function Poll() {
               </p>
               <Link
                 to="/create"
-                className={twMerge(
-                  buttonBaseClasses,
-                  buttonVariantClasses.primary,
-                  'px-4 py-2 text-sm'
-                )}
+                className={primaryLinkClasses('px-4 py-2 text-sm')}
               >
                 Create a new poll
               </Link>

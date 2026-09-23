@@ -29,6 +29,14 @@ export const buttonSizeClasses: Record<Size, string> = {
   lg: 'px-8 py-3 min-h-11',
 };
 
+export function primaryLinkClasses(layoutClasses: string): string {
+  return twMerge(
+    buttonBaseClasses,
+    buttonVariantClasses.primary,
+    layoutClasses
+  );
+}
+
 export default function Button({
   variant = 'primary',
   size = 'md',

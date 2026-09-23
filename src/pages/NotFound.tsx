@@ -1,10 +1,6 @@
 import { Link } from 'react-router-dom';
 import ThemeToggle from '../components/ThemeToggle';
-import {
-  buttonBaseClasses,
-  buttonVariantClasses,
-} from '../components/ui/Button';
-import { twMerge } from '../lib/cn';
+import { primaryLinkClasses } from '../components/ui/Button';
 
 export default function NotFound() {
   return (
@@ -22,11 +18,7 @@ export default function NotFound() {
         </p>
         <Link
           to="/create"
-          className={twMerge(
-            buttonBaseClasses,
-            buttonVariantClasses.primary,
-            'min-h-11 px-6 py-3'
-          )}
+          className={primaryLinkClasses('min-h-11 px-6 py-3')}
         >
           Create a new poll
         </Link>
