@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import TimeGrid from '../components/TimeGrid';
 import ShareButton from '../components/ShareButton';
 import ThemeToggle from '../components/ThemeToggle';
+import SubmitModal from '../components/SubmitModal';
 import { getPoll, respondToPoll } from '../lib/api';
 import type { Poll as PollType } from '../lib/types';
 
@@ -12,6 +13,8 @@ export default function Poll() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [participantName, setParticipantName] = useState('');
   const [myAvailabilities, setMyAvailabilities] = useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -25,15 +28,16 @@ export default function Poll() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  const handleToggle = useCallback(
-    (slotKey: string) => {
-      setMyAvailabilities((prev) => ({
-        ...prev,
-        [slotKey]: !(prev[slotKey] ?? false),
-      }));
-    },
-    []
-  );
+  // Warn before closing/refreshing with unsaved changes
+  useEffect(() => {
+    if (!isEditing || !hasChanges) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isEditing, hasChanges]);
 
   const handleSetSlots = useCallback(
     (slotKeys: string[], value: boolean) => {
@@ -44,36 +48,46 @@ export default function Poll() {
         });
         return next;
       });
+      setHasChanges(true);
     },
     []
   );
-
-  // Load previous response when entering edit mode
-  useEffect(() => {
-    if (!isEditing || !poll) return;
-    if (participantName.trim()) {
-      const key = participantName.trim().toLowerCase();
-      const existing = poll.responses[key];
-      if (existing) {
-        setMyAvailabilities({ ...existing.availabilities });
-      }
-    }
-  }, [isEditing, poll, participantName]);
 
   const handleEnterEdit = () => {
     setMyAvailabilities({});
     setHoveredParticipant(null);
     setIsEditing(true);
+    setHasChanges(false);
+  };
+
+  const handleEditButton = () => {
+    if (isEditing) {
+      if (hasChanges) {
+        setShowSubmitModal(true);
+      } else {
+        // No changes, just exit edit mode
+        setIsEditing(false);
+        setMyAvailabilities({});
+        setParticipantName('');
+      }
+    } else {
+      handleEnterEdit();
+    }
   };
 
   const handleCancelEdit = () => {
+    if (hasChanges && !window.confirm('You have unsaved changes. Discard them?')) {
+      return;
+    }
     setIsEditing(false);
+    setHasChanges(false);
+    setShowSubmitModal(false);
     setMyAvailabilities({});
     setParticipantName('');
   };
 
-  const handleSubmit = async () => {
-    if (!poll || !participantName.trim()) return;
+  const handleConfirmSubmit = async (name: string) => {
+    if (!poll) return;
     setSubmitting(true);
 
     try {
@@ -83,11 +97,13 @@ export default function Poll() {
       });
 
       const updated = await respondToPoll(poll.id, {
-        name: participantName.trim(),
+        name: name.trim(),
         availabilities: availableSlots,
       });
       setPoll(updated);
       setIsEditing(false);
+      setHasChanges(false);
+      setShowSubmitModal(false);
       setMyAvailabilities({});
       setParticipantName('');
     } catch (err) {
@@ -153,21 +169,28 @@ export default function Poll() {
           </div>
         </div>
 
-        {/* Share, edit & participant count */}
+        {/* Edit/Submit, Share & participant count */}
         <div className="flex items-center justify-between mb-6">
           <div className="text-sm text-gray-500 dark:text-gray-400">
             {Object.keys(poll.responses).length} response(s)
+            {isEditing && hasChanges && (
+              <span className="ml-2 text-amber-600 dark:text-amber-400">
+                ● Unsaved changes
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
-            {!isEditing && (
-              <button
-                type="button"
-                onClick={handleEnterEdit}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
-              >
-                Edit availability
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleEditButton}
+              className={`font-semibold px-4 py-2 rounded-lg transition-colors text-sm ${
+                isEditing
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              }`}
+            >
+              {isEditing ? (hasChanges ? 'Submit' : 'Cancel') : 'Edit availability'}
+            </button>
             <ShareButton pollId={poll.id} />
           </div>
         </div>
@@ -179,7 +202,6 @@ export default function Poll() {
             timeRange={poll.timeRange}
             slotMinutes={poll.slotMinutes}
             responses={poll.responses}
-            onToggle={isEditing ? handleToggle : undefined}
             onSetSlots={isEditing ? handleSetSlots : undefined}
             myAvailabilities={isEditing ? myAvailabilities : {}}
             hoveredParticipant={isEditing ? null : hoveredParticipant}
@@ -188,39 +210,24 @@ export default function Poll() {
           />
         </div>
 
-        {/* Edit mode: Name input + Submit/Cancel */}
+        {/* Edit mode hint */}
         {isEditing && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-              Submit your availability
-            </h2>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                value={participantName}
-                onChange={(e) => setParticipantName(e.target.value)}
-                placeholder="Your name"
-                className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              />
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!participantName.trim() || submitting}
-                className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-semibold px-6 py-2 rounded-lg transition-colors"
-              >
-                {submitting ? 'Submitting...' : 'Submit'}
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold px-6 py-2 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
+          <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-sm text-indigo-800 dark:text-indigo-200">
+            💡 Click or drag on the grid to mark your available times, then press <strong>Submit</strong>.
           </div>
         )}
       </div>
+
+      {/* Submit modal */}
+      <SubmitModal
+        isOpen={showSubmitModal}
+        isSubmitting={submitting}
+        onClose={() => setShowSubmitModal(false)}
+        onConfirm={handleConfirmSubmit}
+        defaultName={participantName}
+        onNameChange={setParticipantName}
+        onCancelEdit={handleCancelEdit}
+      />
     </div>
   );
 }

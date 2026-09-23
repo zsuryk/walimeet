@@ -6,7 +6,6 @@ interface TimeGridProps {
   timeRange: { start: string; end: string };
   slotMinutes: number;
   responses: Record<string, { name: string; availabilities: Record<string, boolean> }>;
-  onToggle: ((slotKey: string) => void) | undefined;
   onSetSlots: ((slotKeys: string[], value: boolean) => void) | undefined;
   myAvailabilities: Record<string, boolean>;
   hoveredParticipant: string | null;
@@ -28,7 +27,6 @@ export default function TimeGrid({
   timeRange,
   slotMinutes,
   responses,
-  onToggle,
   onSetSlots,
   myAvailabilities,
   hoveredParticipant,
@@ -63,14 +61,14 @@ export default function TimeGrid({
 
   const handleMouseDown = useCallback(
     (slotKey: string) => {
-      if (!onToggle || !onSetSlots) return;
+      if (!onSetSlots) return;
       const currentValue = myAvailabilities[slotKey] ?? false;
       const newValue = !currentValue;
       setDragValue(newValue);
       setIsDragging(true);
       onSetSlots([slotKey], newValue);
     },
-    [myAvailabilities, onToggle, onSetSlots]
+    [myAvailabilities, onSetSlots]
   );
 
   const handleMouseEnter = useCallback(
