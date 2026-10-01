@@ -68,7 +68,7 @@ function renderPoll() {
 
 async function startEditAndMarkSlot(user: UserEvent): Promise<void> {
   await screen.findByRole('heading', { name: 'Team standup' });
-  await user.click(screen.getByRole('button', { name: 'Edit availability' }));
+  await user.click(screen.getByRole('button', { name: 'Add availability' }));
   const cell = screen.getAllByRole('gridcell')[0];
   cell.focus();
   await user.keyboard(' ');
@@ -114,7 +114,7 @@ describe('editing when others have already responded', () => {
     const user = userEvent.setup();
     renderPoll();
     await screen.findByRole('heading', { name: 'Team standup' });
-    await user.click(screen.getByRole('button', { name: 'Edit availability' }));
+    await user.click(screen.getByRole('button', { name: 'Add availability' }));
 
     // cell[1] = 09:15, where Alex is not available (count = 0)
     const cells = screen.getAllByRole('gridcell');
@@ -241,6 +241,16 @@ describe('submit flow — fresh name', () => {
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(promptSpy).not.toHaveBeenCalled();
   });
+
+  it('flashes Saved for a new response', async () => {
+    const user = userEvent.setup();
+    renderPoll();
+    await startEditAndMarkSlot(user);
+    await openSubmitModal(user);
+    await typeAndConfirm(user, 'Bob');
+
+    expect(await screen.findByText('Saved')).toBeInTheDocument();
+  });
 });
 
 describe('submit flow — name collision prompt', () => {
@@ -257,12 +267,15 @@ describe('submit flow — name collision prompt', () => {
     expect(
       await screen.findByText('A response already exists for this name.')
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Overwrite' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Change name' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit existing' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Overwrite' })
+    ).not.toBeInTheDocument();
     expect(mockRespondToPoll).not.toHaveBeenCalled();
   });
 
-  it('PUTs after the user chooses Overwrite', async () => {
+  it('loads the existing response when Edit existing is chosen, then PUTs the merged result', async () => {
     mockGetPoll.mockResolvedValue(
       makePoll({ responses: { alex: makeResponse('Alex') } })
     );
@@ -271,20 +284,53 @@ describe('submit flow — name collision prompt', () => {
     );
     const user = userEvent.setup();
     renderPoll();
-    await startEditAndMarkSlot(user);
+    await screen.findByRole('heading', { name: 'Team standup' });
+    await user.click(screen.getByRole('button', { name: 'Add availability' }));
+
+    // draft marks 09:15 only
+    const draftCell = screen.getAllByRole('gridcell')[1];
+    draftCell.focus();
+    await user.keyboard(' ');
     await openSubmitModal(user);
     await typeAndConfirm(user, 'Alex');
 
     await user.click(
-      await screen.findByRole('button', { name: 'Overwrite' })
+      await screen.findByRole('button', { name: 'Edit existing' })
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    );
+
+    // Alex's response replaced the draft: 09:00 loaded, 09:15 gone
+    let cells = screen.getAllByRole('gridcell');
+    expect(cells[0]).toHaveAttribute('data-my-selected', 'true');
+    expect(cells[1]).not.toHaveAttribute('data-my-selected', 'true');
+    expect(mockRespondToPoll).not.toHaveBeenCalled();
+
+    // adjust, then submit through the read-only confirmation
+    cells[2].focus();
+    await user.keyboard(' ');
+    await openSubmitModal(user);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Update availability');
+    expect(dialog).toHaveTextContent('Updating Alex’s availability');
+    expect(
+      within(dialog).queryByLabelText(/your name/i)
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Confirm & Submit' })
     );
 
     await waitFor(() =>
       expect(mockRespondToPoll).toHaveBeenCalledWith(POLL_ID, {
         name: 'Alex',
-        availabilities: { [SLOT_KEY]: true },
+        availabilities: { [SLOT_KEY]: true, '2026-10-05-09:30': true },
       })
     );
+    expect(
+      await screen.findByText('Updated Alex’s availability')
+    ).toBeInTheDocument();
   });
 
   it('keeps grid edits and lets the user rename when choosing Change name', async () => {
@@ -324,38 +370,6 @@ describe('submit flow — name collision prompt', () => {
     );
   });
 
-  it('overwrites silently when the colliding name is the remembered response', async () => {
-    mockGetPoll.mockResolvedValue(
-      makePoll({ responses: { alex: makeResponse('Alex') } })
-    );
-    localStorage.setItem(
-      `walimeet:mine:${POLL_ID}`,
-      JSON.stringify({
-        name: 'Alex',
-        availabilities: { [SLOT_KEY]: true },
-        savedAt: Date.now(),
-      })
-    );
-
-    const user = userEvent.setup();
-    renderPoll();
-    await screen.findByRole('heading', { name: 'Team standup' });
-    await user.click(screen.getByRole('button', { name: 'Edit availability' }));
-    await openSubmitModal(user);
-    await user.click(screen.getByRole('button', { name: 'Confirm & Submit' }));
-
-    await waitFor(() =>
-      expect(mockRespondToPoll).toHaveBeenCalledTimes(1)
-    );
-    expect(
-      screen.queryByText('A response already exists for this name.')
-    ).not.toBeInTheDocument();
-    expect(mockRespondToPoll).toHaveBeenCalledWith(POLL_ID, {
-      name: 'Alex',
-      availabilities: { [SLOT_KEY]: true },
-    });
-  });
-
   it('detects collisions case-insensitively with surrounding whitespace', async () => {
     mockGetPoll.mockResolvedValue(
       makePoll({ responses: { alex: makeResponse('Alex') } })
@@ -370,5 +384,136 @@ describe('submit flow — name collision prompt', () => {
       await screen.findByText('A response already exists for this name.')
     ).toBeInTheDocument();
     expect(mockRespondToPoll).not.toHaveBeenCalled();
+  });
+});
+
+describe('edit existing response via pencil', () => {
+  async function renderWithAlex(): Promise<UserEvent> {
+    mockGetPoll.mockResolvedValue(
+      makePoll({ responses: { alex: makeResponse('Alex') } })
+    );
+    const user = userEvent.setup();
+    renderPoll();
+    await screen.findByRole('heading', { name: 'Team standup' });
+    return user;
+  }
+
+  it('shows a pencil button beside each participant chip', async () => {
+    await renderWithAlex();
+    expect(
+      screen.getByRole('button', { name: 'Edit Alex' })
+    ).toBeInTheDocument();
+    // chip itself keeps its own accessible name
+    expect(screen.getByRole('button', { name: 'Alex' })).toBeInTheDocument();
+  });
+
+  it('loads the response onto the grid and submits under that name', async () => {
+    const user = await renderWithAlex();
+    mockRespondToPoll.mockResolvedValue(
+      makePoll({ responses: { alex: makeResponse('Alex') } })
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Edit Alex' }));
+
+    // Alex's slots loaded as "mine", name not re-entered, nothing changed yet
+    const cells = screen.getAllByRole('gridcell');
+    expect(cells[0]).toHaveAttribute('data-my-selected', 'true');
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+
+    // adjust: add 09:15 on top of the loaded response
+    cells[1].focus();
+    await user.keyboard(' ');
+    await openSubmitModal(user);
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Update availability');
+    expect(dialog).toHaveTextContent('Updating Alex’s availability');
+    expect(
+      within(dialog).queryByLabelText(/your name/i)
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Confirm & Submit' })
+    );
+
+    await waitFor(() =>
+      expect(mockRespondToPoll).toHaveBeenCalledWith(POLL_ID, {
+        name: 'Alex',
+        availabilities: { [SLOT_KEY]: true, '2026-10-05-09:15': true },
+      })
+    );
+    expect(
+      await screen.findByText('Updated Alex’s availability')
+    ).toBeInTheDocument();
+  });
+
+  it('confirms before switching to another response while unsaved changes exist', async () => {
+    mockGetPoll.mockResolvedValue(
+      makePoll({
+        responses: {
+          alex: makeResponse('Alex'),
+          bob: makeResponse('Bob', { availabilities: { '2026-10-05-09:30': true } }),
+        },
+      })
+    );
+    const user = userEvent.setup();
+    renderPoll();
+    await screen.findByRole('heading', { name: 'Team standup' });
+    await user.click(screen.getByRole('button', { name: 'Add availability' }));
+
+    // draft marks 09:15 only
+    let cells = screen.getAllByRole('gridcell');
+    cells[1].focus();
+    await user.keyboard(' ');
+
+    await user.click(screen.getByRole('button', { name: 'Edit Alex' }));
+
+    // confirm first — draft untouched until Discard
+    expect(await screen.findByText('Discard changes?')).toBeInTheDocument();
+    cells = screen.getAllByRole('gridcell');
+    expect(cells[1]).toHaveAttribute('data-my-selected', 'true');
+    expect(cells[0]).not.toHaveAttribute('data-my-selected', 'true');
+
+    await user.click(screen.getByRole('button', { name: 'Discard' }));
+
+    cells = screen.getAllByRole('gridcell');
+    expect(cells[0]).toHaveAttribute('data-my-selected', 'true');
+    expect(cells[1]).not.toHaveAttribute('data-my-selected', 'true');
+    expect(screen.queryByText('Discard changes?')).not.toBeInTheDocument();
+  });
+});
+
+describe('guards and gating', () => {
+  it('keeps Submit disabled until the grid changes', async () => {
+    const user = userEvent.setup();
+    renderPoll();
+    await screen.findByRole('heading', { name: 'Team standup' });
+    await user.click(screen.getByRole('button', { name: 'Add availability' }));
+
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled();
+
+    const cell = screen.getAllByRole('gridcell')[0];
+    cell.focus();
+    await user.keyboard(' ');
+
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
+  });
+
+  it('asks for confirmation when Cancel is pressed with unsaved changes', async () => {
+    const user = userEvent.setup();
+    renderPoll();
+    await screen.findByRole('heading', { name: 'Team standup' });
+    await user.click(screen.getByRole('button', { name: 'Add availability' }));
+
+    const cell = screen.getAllByRole('gridcell')[0];
+    cell.focus();
+    await user.keyboard(' ');
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText('Discard changes?')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByText('Discard changes?')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeEnabled();
   });
 });

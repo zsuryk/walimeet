@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Pencil } from 'lucide-react';
 import { generateTimeSlots } from '../lib/timezone';
 import { formatTimeLabel } from '../lib/format';
 import Button from './ui/Button';
@@ -14,6 +14,7 @@ interface TimeGridProps {
   myAvailabilities: Record<string, boolean>;
   hoveredParticipant: string | null;
   onHoverParticipant: (name: string | null) => void;
+  onEditParticipant?: (key: string) => void;
   isEditing: boolean;
   minParticipants?: number | null;
 }
@@ -36,6 +37,7 @@ export default function TimeGrid({
   myAvailabilities,
   hoveredParticipant,
   onHoverParticipant,
+  onEditParticipant,
   isEditing,
   minParticipants,
 }: TimeGridProps) {
@@ -215,28 +217,42 @@ export default function TimeGrid({
               const isPinned = pinnedParticipant === entryKey;
               const isLens = lensParticipant === entryKey;
               return (
-                <Button
+                <span
                   key={entryKey}
-                  variant="secondary"
-                  size="sm"
-                  className={`min-h-11 py-2 rounded-full text-xs font-normal ${
-                    isLens
-                      ? 'bg-brand-500 dark:bg-brand-500 text-white dark:text-white hover:bg-brand-500 dark:hover:bg-brand-500'
-                      : 'bg-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  } ${isPinned ? 'ring-2 ring-brand-400 ring-offset-1 dark:ring-offset-gray-800' : ''}`}
-                  onFocus={() => onHoverParticipant(entryKey)}
-                  onBlur={() => onHoverParticipant(null)}
-                  onMouseEnter={() => onHoverParticipant(entryKey)}
-                  onMouseLeave={() => onHoverParticipant(null)}
-                  onClick={() =>
-                    setPinnedParticipant((prev) =>
-                      prev === entryKey ? null : entryKey
-                    )
-                  }
-                  aria-pressed={isPinned}
+                  className="inline-flex items-center gap-1"
                 >
-                  {r.name}
-                </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className={`min-h-11 py-2 rounded-full text-xs font-normal ${
+                      isLens
+                        ? 'bg-brand-500 dark:bg-brand-500 text-white dark:text-white hover:bg-brand-500 dark:hover:bg-brand-500'
+                        : 'bg-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    } ${isPinned ? 'ring-2 ring-brand-400 ring-offset-1 dark:ring-offset-gray-800' : ''}`}
+                    onFocus={() => onHoverParticipant(entryKey)}
+                    onBlur={() => onHoverParticipant(null)}
+                    onMouseEnter={() => onHoverParticipant(entryKey)}
+                    onMouseLeave={() => onHoverParticipant(null)}
+                    onClick={() =>
+                      setPinnedParticipant((prev) =>
+                        prev === entryKey ? null : entryKey
+                      )
+                    }
+                    aria-pressed={isPinned}
+                  >
+                    {r.name}
+                  </Button>
+                  {onEditParticipant && (
+                    <button
+                      type="button"
+                      aria-label={`Edit ${r.name}`}
+                      onClick={() => onEditParticipant(entryKey)}
+                      className="flex items-center justify-center min-h-9 min-w-9 rounded-full text-gray-400 opacity-70 hover:opacity-100 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand-400 transition-opacity"
+                    >
+                      <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  )}
+                </span>
               );
             })}
           </div>

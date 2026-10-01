@@ -1,21 +1,31 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react';
 import Button from './ui/Button';
 import Field, { inputClasses } from './ui/Field';
+import {
+  isTurnstileEnabled,
+  renderTurnstile,
+  resetTurnstile,
+} from '../lib/turnstile';
+import type { ApiErrorKind } from '../lib/api';
+
+const turnstileEnabled = isTurnstileEnabled();
 
 interface SubmitModalProps {
   isOpen: boolean;
   isSubmitting: boolean;
   onClose: () => void;
-  onConfirm: (name: string) => void;
+  onConfirm: (name: string, turnstileToken: string | null) => void;
   defaultName: string;
   onNameChange: (name: string) => void;
   onCancelEdit: () => void;
   error?: string | null;
+  errorKind?: ApiErrorKind | null;
   returnFocusRef?: RefObject<HTMLElement | null>;
   collisionName?: string | null;
-  onOverwrite?: () => void;
+  onEditExisting?: () => void;
   onChangeName?: () => void;
+  editingName?: string | null;
 }
 
 export default function SubmitModal({
@@ -27,14 +37,18 @@ export default function SubmitModal({
   onNameChange,
   onCancelEdit,
   error,
+  errorKind,
   returnFocusRef,
   collisionName = null,
-  onOverwrite,
+  onEditExisting,
   onChangeName,
+  editingName = null,
 }: SubmitModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const changeNameBtnRef = useRef<HTMLButtonElement>(null);
+  const widgetRef = useRef<HTMLDivElement>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const wasColliding = useRef(false);
   const colliding = collisionName != null;
 
@@ -63,7 +77,29 @@ export default function SubmitModal({
     wasColliding.current = colliding;
   }, [colliding]);
 
+  useEffect(() => {
+    if (!isOpen || !turnstileEnabled) return;
+    setTurnstileToken(null);
+    const el = widgetRef.current;
+    if (!el) return;
+    return renderTurnstile(el, setTurnstileToken, 'respond');
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || isSubmitting || !errorKind) return;
+    if (errorKind === 'network') return;
+    resetTurnstile();
+    setTurnstileToken(null);
+  }, [isOpen, isSubmitting, errorKind]);
+
   if (!isOpen) return null;
+
+  const confirmingExisting = !colliding && editingName != null;
+
+  const handleConfirm = (name: string) => {
+    if (isSubmitting) return;
+    onConfirm(name, turnstileToken);
+  };
 
   const handleKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
     if (e.key !== 'Tab') return;
@@ -108,7 +144,11 @@ export default function SubmitModal({
           id="submit-modal-title"
           className="text-xl font-bold text-gray-900 dark:text-white mb-2"
         >
-          {colliding ? 'Name already taken' : 'Submit availability'}
+          {colliding
+            ? 'Name already taken'
+            : confirmingExisting
+              ? 'Update availability'
+              : 'Submit availability'}
         </h2>
 
         {colliding ? (
@@ -118,13 +158,17 @@ export default function SubmitModal({
           >
             A response already exists for this name.
           </p>
+        ) : confirmingExisting ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Updating <strong>{editingName}</strong>’s availability.
+          </p>
         ) : (
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Enter your name to confirm and submit your availability.
           </p>
         )}
 
-        {!colliding && (
+        {!colliding && !confirmingExisting && (
           <Field label="Your name" htmlFor="participant-name">
             <input
               ref={nameInputRef}
@@ -137,13 +181,17 @@ export default function SubmitModal({
               placeholder="Your name"
               autoFocus
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && defaultName.trim()) {
-                  onConfirm(defaultName);
+                if (e.key === 'Enter' && defaultName.trim() && !isSubmitting) {
+                  handleConfirm(defaultName);
                 }
               }}
               className={`${inputClasses} mb-4`}
             />
           </Field>
+        )}
+
+        {turnstileEnabled && (
+          <div ref={widgetRef} className="flex justify-center mb-4" />
         )}
 
         {error && (
@@ -170,10 +218,10 @@ export default function SubmitModal({
               <Button
                 variant="primary"
                 className="flex-1"
-                onClick={onOverwrite}
+                onClick={onEditExisting}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Submitting...' : 'Overwrite'}
+                Edit existing
               </Button>
             </>
           ) : (
@@ -188,7 +236,7 @@ export default function SubmitModal({
               <Button
                 variant="primary"
                 className="flex-1"
-                onClick={() => onConfirm(defaultName)}
+                onClick={() => handleConfirm(defaultName)}
                 disabled={!defaultName.trim() || isSubmitting}
               >
                 {isSubmitting ? 'Submitting...' : 'Confirm & Submit'}

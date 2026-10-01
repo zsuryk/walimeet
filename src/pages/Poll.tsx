@@ -20,13 +20,9 @@ import Button, {
 } from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import { getPoll, respondToPoll, ApiError } from '../lib/api';
-import {
-  loadRememberedResponse,
-  saveRememberedResponse,
-  clearRememberedResponse,
-} from '../lib/remember';
+import type { ApiErrorKind } from '../lib/api';
 import { formatTimeLabel, formatDayMonth } from '../lib/format';
-import type { Poll as PollType } from '../lib/types';
+import type { Poll as PollType, ParticipantResponse } from '../lib/types';
 
 export default function Poll() {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +31,8 @@ export default function Poll() {
   const [error, setError] = useState<ApiError | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
-  const [loadedFromMemory, setLoadedFromMemory] = useState(false);
+  const [editTargetKey, setEditTargetKey] = useState<string | null>(null);
+  const [pendingEditKey, setPendingEditKey] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [participantName, setParticipantName] = useState('');
@@ -43,8 +40,11 @@ export default function Poll() {
   const [submitting, setSubmitting] = useState(false);
   const [hoveredParticipant, setHoveredParticipant] = useState<string | null>(null);
   const [minParticipants, setMinParticipants] = useState<number | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [savedFlash, setSavedFlash] = useState(false);
+  const [submitError, setSubmitError] = useState<{
+    message: string;
+    kind: ApiErrorKind | null;
+  } | null>(null);
+  const [savedFlash, setSavedFlash] = useState<string | null>(null);
   const [collisionName, setCollisionName] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [createdNudge, setCreatedNudge] = useState(
@@ -74,7 +74,7 @@ export default function Poll() {
 
   useEffect(() => {
     if (!savedFlash) return;
-    const timer = setTimeout(() => setSavedFlash(false), 3000);
+    const timer = setTimeout(() => setSavedFlash(null), 3000);
     return () => clearTimeout(timer);
   }, [savedFlash]);
 
@@ -111,30 +111,50 @@ export default function Poll() {
     []
   );
 
-  const handleStartEdit = () => {
-    const remembered = poll ? loadRememberedResponse(poll.id) : null;
+  const loadResponseIntoEdit = (key: string, resp: ParticipantResponse) => {
+    setEditTargetKey(key);
+    setPendingEditKey(null);
     setHoveredParticipant(null);
     setIsEditing(true);
     setSubmitError(null);
-    setSavedFlash(false);
+    setSavedFlash(null);
     setConfirmDiscard(false);
-    if (remembered) {
-      setParticipantName(remembered.name);
-      setMyAvailabilities(remembered.availabilities);
-      setHasChanges(false);
-      setLoadedFromMemory(true);
-    } else {
-      setParticipantName('');
-      setMyAvailabilities({});
-      setHasChanges(false);
-      setLoadedFromMemory(false);
+    setShowSubmitModal(false);
+    setCollisionName(null);
+    setParticipantName(resp.name);
+    setMyAvailabilities({ ...resp.availabilities });
+    setHasChanges(false);
+  };
+
+  const handleStartEdit = () => {
+    setEditTargetKey(null);
+    setPendingEditKey(null);
+    setHoveredParticipant(null);
+    setIsEditing(true);
+    setSubmitError(null);
+    setSavedFlash(null);
+    setConfirmDiscard(false);
+    setParticipantName('');
+    setMyAvailabilities({});
+    setHasChanges(false);
+  };
+
+  const handleEditParticipant = (key: string) => {
+    const resp = poll?.responses[key];
+    if (!resp) return;
+    if (isEditing && hasChanges) {
+      setPendingEditKey(key);
+      setConfirmDiscard(true);
+      return;
     }
+    loadResponseIntoEdit(key, resp);
   };
 
   const exitEdit = () => {
     setIsEditing(false);
     setHasChanges(false);
-    setLoadedFromMemory(false);
+    setEditTargetKey(null);
+    setPendingEditKey(null);
     setConfirmDiscard(false);
     setShowSubmitModal(false);
     setCollisionName(null);
@@ -143,25 +163,25 @@ export default function Poll() {
     setSubmitError(null);
   };
 
+  const handleDiscardChanges = () => {
+    if (pendingEditKey && poll?.responses[pendingEditKey]) {
+      loadResponseIntoEdit(pendingEditKey, poll.responses[pendingEditKey]);
+      return;
+    }
+    exitEdit();
+  };
+
   const handleCancelEdit = () => {
     if (hasChanges) {
+      setPendingEditKey(null);
       setConfirmDiscard(true);
       return;
     }
     exitEdit();
   };
 
-  const handleClearRemembered = () => {
-    if (!poll) return;
-    clearRememberedResponse(poll.id);
-    setParticipantName('');
-    setMyAvailabilities({});
-    setLoadedFromMemory(false);
-    setHasChanges(false);
-  };
-
   const handleOpenSubmit = () => {
-    if (!hasChanges && !loadedFromMemory) return;
+    if (!hasChanges) return;
     setSubmitError(null);
     setConfirmDiscard(false);
     setCollisionName(null);
@@ -178,9 +198,10 @@ export default function Poll() {
     el?.focus();
   };
 
-  const performSubmit = async (name: string) => {
+  const performSubmit = async (name: string, token: string | null) => {
     if (!poll) return;
     setSubmitting(true);
+    const wasEdit = editTargetKey !== null;
 
     try {
       const availableSlots: Record<string, boolean> = {};
@@ -188,56 +209,66 @@ export default function Poll() {
         if (value) availableSlots[key] = true;
       });
 
-      const updated = await respondToPoll(poll.id, {
-        name: name.trim(),
-        availabilities: availableSlots,
-      });
-      saveRememberedResponse(poll.id, {
-        name: name.trim(),
-        availabilities: availableSlots,
-      });
+      const input = { name: name.trim(), availabilities: availableSlots };
+      const updated = token
+        ? await respondToPoll(poll.id, input, token)
+        : await respondToPoll(poll.id, input);
       setPoll(updated);
       setIsEditing(false);
       setHasChanges(false);
-      setLoadedFromMemory(false);
+      setEditTargetKey(null);
+      setPendingEditKey(null);
       setConfirmDiscard(false);
       setShowSubmitModal(false);
       setCollisionName(null);
       setMyAvailabilities({});
       setParticipantName('');
       setSubmitError(null);
-      setSavedFlash(true);
-    } catch (err) {
-      setSubmitError(
-        err instanceof ApiError ? err.message : 'Failed to submit. Please try again.'
+      setSavedFlash(
+        wasEdit ? `Updated ${name.trim()}’s availability` : 'Saved'
       );
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setSubmitError({ message: err.message, kind: err.kind });
+      } else {
+        setSubmitError({
+          message: 'Failed to submit. Please try again.',
+          kind: null,
+        });
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleConfirmSubmit = async (name: string) => {
+  const handleConfirmSubmit = async (name: string, token: string | null) => {
     if (!poll) return;
     const trimmed = name.trim();
     if (!trimmed) return;
 
-    const responseKey = trimmed.toLowerCase();
-    const remembered = loadRememberedResponse(poll.id);
-    const rememberedKey = remembered
-      ? remembered.name.trim().toLowerCase()
-      : null;
+    if (editTargetKey) {
+      await performSubmit(name, token);
+      return;
+    }
 
-    if (Object.hasOwn(poll.responses, responseKey) && responseKey !== rememberedKey) {
+    const responseKey = trimmed.toLowerCase();
+    if (Object.hasOwn(poll.responses, responseKey)) {
       setCollisionName(name);
       return;
     }
 
-    await performSubmit(name);
+    await performSubmit(name, token);
   };
 
-  const handleOverwrite = () => {
-    if (!collisionName) return;
-    void performSubmit(collisionName);
+  const handleEditExisting = () => {
+    if (!collisionName || !poll) return;
+    const key = collisionName.trim().toLowerCase();
+    const resp = poll.responses[key];
+    if (!resp) {
+      setCollisionName(null);
+      return;
+    }
+    loadResponseIntoEdit(key, resp);
   };
 
   const handleChangeName = () => {
@@ -283,7 +314,12 @@ export default function Poll() {
                 Create a new poll
               </Link>
             </>
-          ) : kind === 'network' || kind === 'server' || kind === 'bad-request' ? (
+          ) : kind === 'network' ||
+            kind === 'server' ||
+            kind === 'bad-request' ||
+            kind === 'rate-limited' ||
+            kind === 'forbidden' ||
+            kind === 'conflict' ? (
             <>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                 Couldn&apos;t load poll
@@ -326,15 +362,10 @@ export default function Poll() {
         text: 'Unsaved changes',
         cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300',
       }
-    : loadedFromMemory
-      ? {
-          text: 'Loaded your saved response',
-          cls: 'bg-blue-50 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300',
-        }
-      : {
-          text: 'Editing',
-          cls: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
-        };
+    : {
+        text: 'Editing',
+        cls: 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300',
+      };
 
   return (
     <div className="min-h-dvh py-8 px-4">
@@ -396,7 +427,7 @@ export default function Poll() {
             {savedFlash && (
               <span role="status" className="ml-2 inline-flex items-center gap-1 text-green-700 dark:text-green-400">
                 <Check className="w-4 h-4" aria-hidden="true" />
-                Saved
+                {savedFlash}
               </span>
             )}
           </div>
@@ -414,7 +445,7 @@ export default function Poll() {
                   onClick={handleStartEdit}
                   data-return-target=""
                 >
-                  Edit availability
+                  Add availability
                 </Button>
               ) : (
                 <>
@@ -424,18 +455,13 @@ export default function Poll() {
                   >
                     {statusBadge.text}
                   </span>
-                  {loadedFromMemory && (
-                    <Button variant="ghost" size="sm" onClick={handleClearRemembered}>
-                      Not you? Clear
-                    </Button>
-                  )}
                   <Button variant="secondary" onClick={handleCancelEdit}>
                     Cancel
                   </Button>
                   <Button
                     variant="primary"
                     onClick={handleOpenSubmit}
-                    disabled={!hasChanges && !loadedFromMemory}
+                    disabled={!hasChanges}
                     data-return-target=""
                   >
                     Submit
@@ -465,10 +491,17 @@ export default function Poll() {
               Discard changes?
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="danger" size="sm" onClick={exitEdit}>
+              <Button variant="danger" size="sm" onClick={handleDiscardChanges}>
                 Discard
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setConfirmDiscard(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setConfirmDiscard(false);
+                  setPendingEditKey(null);
+                }}
+              >
                 Keep editing
               </Button>
             </div>
@@ -491,6 +524,7 @@ export default function Poll() {
             myAvailabilities={isEditing ? myAvailabilities : {}}
             hoveredParticipant={hoveredParticipant}
             onHoverParticipant={setHoveredParticipant}
+            onEditParticipant={handleEditParticipant}
             isEditing={isEditing}
             minParticipants={minParticipants}
           />
@@ -524,11 +558,15 @@ export default function Poll() {
         defaultName={participantName}
         onNameChange={setParticipantName}
         onCancelEdit={exitEdit}
-        error={submitError}
+        error={submitError?.message}
+        errorKind={submitError?.kind}
         returnFocusRef={editButtonRef}
         collisionName={collisionName}
-        onOverwrite={handleOverwrite}
+        onEditExisting={handleEditExisting}
         onChangeName={handleChangeName}
+        editingName={
+          collisionName || !editTargetKey ? null : participantName
+        }
       />
     </div>
   );
