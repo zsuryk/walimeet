@@ -111,63 +111,61 @@ export default function Poll() {
     []
   );
 
-  const loadResponseIntoEdit = (key: string, resp: ParticipantResponse) => {
-    setEditTargetKey(key);
+  const resetEditState = () => {
+    setEditTargetKey(null);
     setPendingEditKey(null);
-    setHoveredParticipant(null);
-    setIsEditing(true);
-    setSubmitError(null);
-    setSavedFlash(null);
     setConfirmDiscard(false);
     setShowSubmitModal(false);
     setCollisionName(null);
+    setMyAvailabilities({});
+    setParticipantName('');
+    setSubmitError(null);
+  };
+
+  const loadResponseIntoEdit = (key: string, resp: ParticipantResponse) => {
+    resetEditState();
+    setHoveredParticipant(null);
+    setSavedFlash(null);
+    setIsEditing(true);
+    setEditTargetKey(key);
     setParticipantName(resp.name);
     setMyAvailabilities({ ...resp.availabilities });
     setHasChanges(false);
   };
 
+  const startEditFromKey = (key: string): boolean => {
+    const resp = poll?.responses[key];
+    if (!resp) return false;
+    loadResponseIntoEdit(key, resp);
+    return true;
+  };
+
   const handleStartEdit = () => {
-    setEditTargetKey(null);
-    setPendingEditKey(null);
+    resetEditState();
     setHoveredParticipant(null);
-    setIsEditing(true);
-    setSubmitError(null);
     setSavedFlash(null);
-    setConfirmDiscard(false);
-    setParticipantName('');
-    setMyAvailabilities({});
+    setIsEditing(true);
     setHasChanges(false);
   };
 
   const handleEditParticipant = (key: string) => {
-    const resp = poll?.responses[key];
-    if (!resp) return;
+    if (!poll?.responses[key]) return;
     if (isEditing && hasChanges) {
       setPendingEditKey(key);
       setConfirmDiscard(true);
       return;
     }
-    loadResponseIntoEdit(key, resp);
+    startEditFromKey(key);
   };
 
   const exitEdit = () => {
     setIsEditing(false);
     setHasChanges(false);
-    setEditTargetKey(null);
-    setPendingEditKey(null);
-    setConfirmDiscard(false);
-    setShowSubmitModal(false);
-    setCollisionName(null);
-    setMyAvailabilities({});
-    setParticipantName('');
-    setSubmitError(null);
+    resetEditState();
   };
 
   const handleDiscardChanges = () => {
-    if (pendingEditKey && poll?.responses[pendingEditKey]) {
-      loadResponseIntoEdit(pendingEditKey, poll.responses[pendingEditKey]);
-      return;
-    }
+    if (pendingEditKey && startEditFromKey(pendingEditKey)) return;
     exitEdit();
   };
 
@@ -214,16 +212,7 @@ export default function Poll() {
         ? await respondToPoll(poll.id, input, token)
         : await respondToPoll(poll.id, input);
       setPoll(updated);
-      setIsEditing(false);
-      setHasChanges(false);
-      setEditTargetKey(null);
-      setPendingEditKey(null);
-      setConfirmDiscard(false);
-      setShowSubmitModal(false);
-      setCollisionName(null);
-      setMyAvailabilities({});
-      setParticipantName('');
-      setSubmitError(null);
+      exitEdit();
       setSavedFlash(
         wasEdit ? `Updated ${name.trim()}’s availability` : 'Saved'
       );
@@ -261,14 +250,9 @@ export default function Poll() {
   };
 
   const handleEditExisting = () => {
-    if (!collisionName || !poll) return;
+    if (!collisionName) return;
     const key = collisionName.trim().toLowerCase();
-    const resp = poll.responses[key];
-    if (!resp) {
-      setCollisionName(null);
-      return;
-    }
-    loadResponseIntoEdit(key, resp);
+    if (!startEditFromKey(key)) setCollisionName(null);
   };
 
   const handleChangeName = () => {

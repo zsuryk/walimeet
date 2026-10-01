@@ -247,7 +247,7 @@ export default function TimeGrid({
                       type="button"
                       aria-label={`Edit ${r.name}`}
                       onClick={() => onEditParticipant(entryKey)}
-                      className="flex items-center justify-center min-h-9 min-w-9 rounded-full text-gray-400 opacity-70 hover:opacity-100 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand-400 transition-opacity"
+                      className="flex items-center justify-center min-h-11 min-w-11 rounded-full text-gray-400 opacity-70 hover:opacity-100 hover:text-brand-600 dark:text-gray-500 dark:hover:text-brand-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-brand-400 transition-opacity"
                     >
                       <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
