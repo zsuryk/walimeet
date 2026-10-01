@@ -5,7 +5,24 @@ import { defineConfig } from 'vitest/config'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   test: {
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'src',
+          environment: 'jsdom',
+          include: ['src/**/*.test.{ts,tsx}'],
+          setupFiles: ['./src/test/setup.ts'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'worker',
+          environment: 'node',
+          include: ['worker/**/*.test.ts'],
+        },
+      },
+    ],
   },
 })

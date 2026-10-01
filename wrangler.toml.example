@@ -5,3 +5,28 @@ compatibility_date = "2024-01-01"
 [[kv_namespaces]]
 binding = "WALIMEET_KV"
 id = "YOUR_KV_NAMESPACE_ID"
+
+# TURNSTILE_SECRET is set via `wrangler secret put TURNSTILE_SECRET`, not in this file.
+[[ratelimits]]
+name = "RATE_LIMIT_ALL"
+namespace_id = "1001"
+[ratelimits.simple]
+limit = 30
+period = 60
+
+[[ratelimits]]
+name = "RATE_LIMIT_BURST"
+namespace_id = "1002"
+[ratelimits.simple]
+limit = 20
+period = 10
+
+[[ratelimits]]
+name = "RATE_LIMIT_WRITE"
+namespace_id = "1003"
+[ratelimits.simple]
+limit = 5
+period = 60
+
+[observability]
+enabled = true

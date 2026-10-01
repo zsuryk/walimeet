@@ -1,11 +1,16 @@
 import { getPoll } from '../lib/kv';
+import { validatePollId } from '../lib/validate';
 import type { Env } from '../lib/types';
 
 export async function handleGetPoll(
-  request: Request,
+  _request: Request,
   env: Env,
   pollId: string
 ): Promise<Response> {
+  if (!validatePollId(pollId)) {
+    return new Response('Poll not found', { status: 404 });
+  }
+
   const poll = await getPoll(env.WALIMEET_KV, pollId);
 
   if (!poll) {

@@ -7,7 +7,12 @@ import ThemeToggle from '../components/ThemeToggle';
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
 import Field, { inputClasses } from '../components/ui/Field';
-import { createPoll } from '../lib/api';
+import { createPoll, ApiError } from '../lib/api';
+import {
+  isTurnstileEnabled,
+  renderTurnstile,
+  resetTurnstile,
+} from '../lib/turnstile';
 import { getUserTimezone, getTimezoneOffset } from '../lib/timezone';
 import {
   loadCreateDraft,
@@ -15,6 +20,21 @@ import {
   clearCreateDraft,
 } from '../lib/createDraft';
 import { format } from 'date-fns';
+
+const turnstileEnabled = isTurnstileEnabled();
+
+function createFailureMessage(err: unknown): string {
+  if (
+    err instanceof ApiError &&
+    (err.kind === 'forbidden' ||
+      err.kind === 'rate-limited' ||
+      err.kind === 'conflict' ||
+      err.status === 413)
+  ) {
+    return err.message;
+  }
+  return 'Failed to create poll. Please try again.';
+}
 
 function parseDraftDate(value: string): Date {
   const [y, m, d] = value.split('-').map(Number);
@@ -59,6 +79,8 @@ export default function Create() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<HTMLDivElement>(null);
 
   const timeRangeValid = timeRange.end > timeRange.start;
   const firstStepFocus = useRef(true);
@@ -98,6 +120,13 @@ export default function Create() {
     step,
   ]);
 
+  useEffect(() => {
+    if (step !== 3 || !turnstileEnabled) return;
+    const el = turnstileRef.current;
+    if (!el) return;
+    return renderTurnstile(el, setTurnstileToken, 'create');
+  }, [step]);
+
   const startOver = () => {
     clearCreateDraft();
     setDraftRestored(false);
@@ -132,21 +161,28 @@ export default function Create() {
     setLoading(true);
 
     try {
-      const poll = await createPoll({
-        name,
-        description,
-        dates: selectedDates.map((d) => format(d, 'yyyy-MM-dd')),
-        timeRange,
-        timezone,
-        creatorName: creatorName || 'Anonymous',
-        expiryDays,
-      });
+      const poll = await createPoll(
+        {
+          name,
+          description,
+          dates: selectedDates.map((d) => format(d, 'yyyy-MM-dd')),
+          timeRange,
+          timezone,
+          creatorName: creatorName || 'Anonymous',
+          expiryDays,
+        },
+        turnstileToken ?? undefined
+      );
       setError(null);
       clearCreateDraft();
       navigate(`/poll/${poll.id}?created=1`);
     } catch (err) {
       console.error('Failed to create poll:', err);
-      setError('Failed to create poll. Please try again.');
+      if (err instanceof ApiError && err.status !== null) {
+        resetTurnstile();
+        setTurnstileToken(null);
+      }
+      setError(createFailureMessage(err));
     } finally {
       setLoading(false);
     }
@@ -401,6 +437,10 @@ export default function Create() {
                 {selectedDates.length} day{selectedDates.length === 1 ? '' : 's'} · {timeRange.start} to {timeRange.end} · {timezone.replace(/_/g, ' ')}
               </p>
             </Card>
+
+            {turnstileEnabled && (
+              <div ref={turnstileRef} className="flex justify-center" />
+            )}
 
             {error && (
               <div

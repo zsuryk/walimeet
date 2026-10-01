@@ -39,6 +39,15 @@ export interface RespondInput {
   availabilities: Record<string, boolean>;
 }
 
+export interface RateLimit {
+  limit(opts: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface Env {
   WALIMEET_KV: KVNamespace;
+  RATE_LIMIT_ALL: RateLimit;
+  RATE_LIMIT_BURST: RateLimit;
+  RATE_LIMIT_WRITE: RateLimit;
+  TURNSTILE_SECRET?: string;
+  TURNSTILE_ALLOWED_HOSTNAMES?: string;
 }
